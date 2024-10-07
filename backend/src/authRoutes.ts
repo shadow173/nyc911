@@ -1,4 +1,5 @@
-import { createAccount, loginUser } from "./services/createAccount";
+import { createAccount } from "./services/createAccount";
+import { loginUser } from "./services/loginAccount";
 import { Elysia, t} from 'elysia'
 
 export const authRoutes = new Elysia({ prefix: '/auth'})
