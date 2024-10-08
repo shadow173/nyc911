@@ -1,39 +1,51 @@
+export const sendToMapsAPI = async (address: string) => {
+  let API_URL = process.env.MAPS_API_URL!;
+  const focusLat = "40.709069";
+  const focusLong = "-73.924988"; // iput this to somewhere in brooklyn. should work well for now
+  const encodedAddress = encodeURIComponent(address);
+  API_URL += `/autocomplete?focus.point.lat=${focusLat}&focus.point.lon=${focusLong}&text=${encodedAddress}&size=1`;
+  const response = await fetch(API_URL);
+  console.log("fetching: " + API_URL);
+  const body = await response.json();
 
-export const getMapFromText = async (textAddress: string):Promise<object> => {
+  return body;
+};
 
-    const newAddress = textAddress
-    // To focus your search based upon a geographical area, such as the center of the user's map or at the device's GPS location, supply the parameters focus.point.lat and focus.point.lon. This boosts locally relevant results higher. For example, if you search for Union Square:
-//     In this example, you want to find all YMCA locations within a 35-kilometer radius of a location in Ontario, Canada. This time, you can use the boundary.circle.* parameter group, where boundary.circle.lat and boundary.circle.lon is your location in Ontario and boundary.circle.radius is the acceptable distance from that location. Note that the boundary.circle.radius parameter is always specified in kilometers.
-
-// /v1/autocomplete?text=YMCA&boundary.circle.lon=-79.186484&boundary.circle.lat=43.818156&boundary.circle.radius=35
-    // make sure to search for intersections or streets not places
-    try {
-        // send to api, get info back
-        // will implement that later
-        const firstObjectReturned = await sendtoAPI(textAddress)
-        const { coordinates } = firstObjectReturned.geometry;
-    const {
-      name,
-      layer,
-      neighbourhood,
-      gid,
-      id,
-      source,
-      source_id,
-    } = firstObjectReturned.properties;
-
-    return {
-      coordinates,
-      name,
-      layer,
-      neighbourhood,
-      gid,
-      id,
-      source,
-      source_id,
-    };
+export const getMapFromText = async (textAddress: string): Promise<object> => {
+  const newAddress = textAddress;
+  // make sure to search for intersections or streets not places
+  try {
+    // send to api, get info back
+    // will implement that later
+    const firstObjectReturned = await sendToMapsAPI(newAddress);
+    if (
+      firstObjectReturned.features &&
+      firstObjectReturned.features.length > 0
+    ) {
+      const firstFeature = firstObjectReturned.features[0];
+      const { coordinates } = firstFeature.geometry;
+      const { name, layer, neighbourhood, gid, id, source, source_id } =
+        firstFeature.properties;
+      // for some reason the api returns them in an array reversed. very odd but ok
+      const latitude = coordinates[1];
+      const longitude = coordinates[0];
+      return {
+        latitude,
+        longitude,
+        name,
+        layer,
+        neighbourhood,
+        gid,
+        id,
+        source,
+        source_id,
+      };
+    } else {
+      throw new Error("Error, no results found for that address");
+    }
   } catch (e) {
     console.error("Error getting address in getMapFromText.ts: " + e);
     return { error: "Error generating address!" };
   }
 };
+console.log(await getMapFromText("West 57 and 6"));
