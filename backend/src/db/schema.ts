@@ -29,7 +29,7 @@ export const incidents = pgTable('incidents',{
     updatedAt: timestamp('updated_at'), // any updateds to the job should update this, unit assigned, more info, etc
     date: date('date').notNull(),   // date of the incident
     assignedUnits: text('assigned_units').array().notNull(),    // SHOULD Be an array of current units assigned. 
-},
+}, // perhaps add attributes of isClosed. this will let the incident be searchable. could be future implementation.
 (table) => ({
 
   statusIdx: index("idx_incidents_status").on(table.status),
