@@ -57,6 +57,20 @@
       "when": 1728447422350,
       "tag": "0008_third_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1728489704767,
+      "tag": "0009_thick_mac_gargan",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1728496601283,
+      "tag": "0010_wooden_madrox",
+      "breakpoints": true
     }
   ]
 }

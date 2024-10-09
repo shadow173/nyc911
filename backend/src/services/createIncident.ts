@@ -4,45 +4,56 @@ import { db } from '../utils/db';
 import { addNoteToIncident } from './addNoteToIncident';
 import { getMapFromText } from './getMapFromText';
 import { DateTime } from 'luxon';
+import { assignUnitToIncident, closeIncident, preemptUnit } from './getLastUnitIncident';
+import logger from '../utils/logger'; // Adjust the path accordingly
 
 type Incident = typeof incidents.$inferInsert;
 
-// !!! IMPORTANT
-/// add a check to make sure the unit is not on another assignment. if it is, close that assignment as marked. If they were redirected or called for the hire, the llama should have called the function removeunit or something like that which should 
-// keep the job open
-
-// and for ESU, do not assign the esu unit to bypass this feature. only assign if they state they are 84 or onscene
-
-export async function createIncident({ body, cookie }:any){
+export async function createIncident({ body, cookie }: any) {
   // Get current date in EST for the 'date' field (formatted as YYYY-MM-DD)
-const currentDateInEST = DateTime.now().setZone('America/New_York').toFormat('yyyy-MM-dd');
+  const currentDateInEST = DateTime.now().setZone('America/New_York').toFormat('yyyy-MM-dd');
 
-// Get current timestamp in EST for the 'createdAt' field
-const currentTimestampInEST = DateTime.now().setZone('America/New_York').toJSDate();
-    //perhaps have some different authentication cuz llama will just be doing this
+  // Get current timestamp in EST for the 'createdAt' field
+  const currentTimestampInEST = DateTime.now().setZone('America/New_York').toJSDate();
 
-    const { incidentType, description, textAddress, assignedUnits, agencyType, severity } = body // agency type must be fire,pd or ems ONLY
-// addNoteToIncident if duplicate, of another call
-    let note:string = ""
-try {
-    // Check for existing incident
-    const existingIncident = await db.select().from(incidents).where(
-      eq(incidents.textAddress, textAddress)
-    ).limit(1);
+  const { incidentType, description, textAddress, assignedUnits, agencyType, severity, rerouted } = body;
+  logger.info('Creating new incident', { incidentType, textAddress, assignedUnits });
 
-    
-    if (existingIncident.length > 0) {
-        // add note to incident
-        note = "Duplicate job prevented from being added. Description: " + description
-        addNoteToIncident(existingIncident[0].id, note)
-      // Incident exists, add a note or update as needed
-      return { message: 'Incident already exists', incident: existingIncident[0] };
+  let note: string = "";
+  try {
+    // **First check**: Check for existing incident based on user-inputted 'inputAddress'
+    const existingIncidentByInputAddress = await db
+      .select()
+      .from(incidents)
+      .where(eq(incidents.inputAddress, textAddress)) // Use 'inputAddress' for the duplicate check
+      .limit(1);
+
+    if (existingIncidentByInputAddress.length > 0) {
+      logger.warn('Duplicate incident detected based on input address', { textAddress });
+
+      // Add note to existing incident
+      note = `Another unit assigned to same address. Description: ${description}\nCall Type: ${incidentType}`;
+      await addNoteToIncident(existingIncidentByInputAddress[0].id, note);
+
+      await Promise.all(
+        assignedUnits.map((unitId: string) => assignUnitToIncident(unitId, existingIncidentByInputAddress[0].id))
+      );
+
+      return { message: 'Incident already exists', incident: existingIncidentByInputAddress[0] };
     } else {
-      // Create new incident
+      // Proceed to create new incident after further checks
 
+      // Handle unit assignments based on 'rerouted' flag
+      if (rerouted) {
+        logger.info('Units are being rerouted off assignment', { assignedUnits });
+        await Promise.all(assignedUnits.map((unit: any) => preemptUnit(unit)));
+      } else {
+        logger.info('Closing previous incidents for units', { assignedUnits });
+        await Promise.all(assignedUnits.map((unit: any) => closeIncident(unit)));
+      }
 
-
-      const mapObject = await getMapFromText(textAddress) // this returns relevant info.
+      // Fetch map data
+      const mapObject = await getMapFromText(textAddress);
       if (mapObject && mapObject.precinct && mapObject.latitude && mapObject.longitude) {
         const {
           latitude,
@@ -60,59 +71,77 @@ try {
           node,
         } = mapObject;
 
-        if(patrolBoro && precinct && precinctAndSector && gid && id && node){
-          const incident:Incident = {
+        if(node){
+          const existingIncidentByNode = await db
+          .select()
+          .from(incidents)
+          .where(eq(incidents.nodeId, node))
+          .limit(1);
+          if (existingIncidentByNode.length > 0) {
+            logger.warn('Duplicate incident detected based on node ID', { node });
+  
+            note = `Duplicate incident at same location detected. Description: ${description}\nCall Type: ${incidentType}`;
+            await addNoteToIncident(existingIncidentByNode[0].id, note);
+  
+            await Promise.all(
+              assignedUnits.map((unitId: string) => assignUnitToIncident(unitId, existingIncidentByNode[0].id))
+            );
+  
+            return { message: 'Incident already exists based on node ID', incident: existingIncidentByNode[0] };
+          }
+        }
+        // **Second check**: Check for existing incident based on 'nodeId'
+        
+
+        
+
+        // No duplicates found, create a new incident
+        if (patrolBoro && precinct && precinctAndSector && gid && id && node) {
+          const incident: Incident = {
             latitude: latitude,
             longitude: longitude,
+            inputAddress: textAddress, // Include 'inputAddress' in the incident data
             patrolBoro: patrolBoro,
             incidentType: incidentType,
             description: description,
-            agencyType: agencyType, // must be fire, ems or pd,
+            agencyType: agencyType,
             precinct: precinct,
             severity: severity,
             gid: gid,
             oid: id,
             nodeId: node,
             sector: precinctAndSector,
-            textAddress: title,
-            coordinates: [longitude,latitude],
+            textAddress: title, // This is the formatted address from the map data
+            coordinates: [longitude, latitude],
             sublocality: neighbourhood,
             addressType: layer,
-            status: 'active', //  add one for holding jobs. if ems unit was preempted ensure that it stays open
+            status: 'active',
             date: currentDateInEST,
             createdAt: currentTimestampInEST,
-            assignedUnits: assignedUnits // this needs to be an array when sent to the endpoint
-          }
-          const createdJobArray = await db.insert(incidents).values(incident).returning()
-          const createdJob = createdJobArray[0]
+            assignedUnits: assignedUnits,
+          };
 
-          addNoteToIncident(createdJob.id, `JOB CREATED AT TIME: ${currentTimestampInEST}`)
-          addNoteToIncident(createdJob.id, `UNIT(S) INITIALLY ASSIGNED: ${assignedUnits.join(', ')}`)
+          const createdJobArray = await db.insert(incidents).values(incident).returning();
+          const createdJob = createdJobArray[0];
+          logger.info('New incident created', { incidentId: createdJob.id });
+
+          await addNoteToIncident(createdJob.id, `JOB CREATED AT TIME: ${currentTimestampInEST}`);
+          await addNoteToIncident(createdJob.id, `UNIT(S) INITIALLY ASSIGNED: ${assignedUnits.join(', ')}`);
 
           return { message: 'New incident created', incident: createdJob };
-
+        } else {
+          logger.error('Required map data is missing', { mapObject });
+          throw new Error('Required map data is missing');
         }
+      } else {
+        logger.error('Map information could not be retrieved', { textAddress });
+        throw new Error('Map information could not be retrieved');
+      }
+    }
+  } catch (error) {
+    console.log(error)
 
-      // Now I have an object of map information
-      // now insert relevant info into the db!
-        
-        
-
-    // When displaying it use coordinates on map from googleapi
-     // for the google maps api make sure to mentwhyion New York City
-
-     // when creating incident. note call that was entered with a timestamp
-     // add a note for that, also add a note for the description of the call aswell
-     // also make sure that when notes are displayed for the incident they are displayed in a chronological order starting from the creation time
-
-}
-}
-    // create the incident
-    // if the incident is not a duplicate, create
-
-} catch (error) {
-    console.error('Error in createIncident:', error);
+    logger.error('Error in createIncident', { error, incidentType, textAddress });
     throw new Error('Failed to process incident');
   }
 }
-

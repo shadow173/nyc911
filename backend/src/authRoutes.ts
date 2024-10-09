@@ -1,7 +1,7 @@
 import { createAccount } from "./services/createAccount";
 import { loginUser } from "./services/loginAccount";
 import { Elysia, t} from 'elysia'
-
+import { callRoutes } from "./callRoutes";
 export const authRoutes = new Elysia({ prefix: '/auth'})
 .post('create-user', createAccount, { // i will put my function in my second body. // this is destructuring context I think
     body: t.Object({
@@ -16,3 +16,7 @@ export const authRoutes = new Elysia({ prefix: '/auth'})
         password: t.String()
     })
 })
+
+new Elysia()
+    .use(callRoutes)
+    

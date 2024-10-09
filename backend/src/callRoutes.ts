@@ -2,7 +2,7 @@ import Elysia, { t } from "elysia";
 import { createIncident } from "./services/createIncident";
 import { addNoteUpdate } from "./controllers/addNoteUpdate";
 
-export const authRoutes = new Elysia({ prefix: '/'})
+export const callRoutes = new Elysia({ prefix: '/calls'})
 .post('/incidents', createIncident, { // i will put my function in my second body. // this is destructuring context I think
     body: t.Object({
        incidentType: t.String(),
@@ -19,4 +19,7 @@ export const authRoutes = new Elysia({ prefix: '/'})
        noteDescription: t.String(),
     }) 
 })
+
+// create post for preempt unit // it will get the unit id of who to cancel and remove them. but if they are the only one on the job close the job. it should just call the preempt function
+
 // IMPORTANT MUST AUTHENTICATE BEFORE PRODUCTION. I JUST DK HOW ILL DO IT YET

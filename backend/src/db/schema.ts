@@ -53,6 +53,7 @@ export const incidents = pgTable(
     id: serial("id").primaryKey(),
     latitude: doublePrecision("latitude").notNull(),
     longitude: doublePrecision("longitude").notNull(),
+    inputAddress: text("input_address").notNull(),
     addressType: text("address_type").notNull(),
     patrolBoro: varchar("patrol_boro").notNull(), // the patrol boro. 
     incidentType: varchar("incident_type").notNull(), // the code, could be 54-U for PD. EMS will be the call type, injury, arrest, etc
@@ -67,7 +68,7 @@ export const incidents = pgTable(
     textAddress: varchar("text_address"), // human readable address irrelevant for searches or title in other words
     coordinates: point("coordinates").notNull(), // coordinates of the incident
     sublocality: varchar("sublocality"), // neighborhood, Jamaica, Astoria, etc. or Queens, Brooklyn, etc. sublocality_level_1	Queens - in google maps docs
-    status: varchar("status").notNull(), // active, or marked -- add timeout after certian time. different for pd and ems
+    status: varchar("status").notNull(), // active, or marked, or pending -- add timeout after certian time. different for pd and ems
     createdAt: timestamp("created_at").notNull().defaultNow(), // when the job was assigned
     updatedAt: timestamp("updated_at"), // any updateds to the job should update this, unit assigned, more info, etc
     date: date("date").notNull(), // date of the incident
@@ -111,5 +112,39 @@ export const incidentUpdatesRelations = relations(
       fields: [incidentUpdates.incidentId],
       references: [incidents.id],
     }),
+  }),
+);
+
+
+export const archivedIncidents = pgTable(
+  "archived_incidents",
+  {
+    id: serial("id").primaryKey(),
+    latitude: doublePrecision("latitude").notNull(),
+    longitude: doublePrecision("longitude").notNull(),
+    addressType: text("address_type").notNull(),
+    inputAddress: text("input_address").notNull(),
+    patrolBoro: varchar("patrol_boro").notNull(),
+    incidentType: varchar("incident_type").notNull(),
+    description: text("description").notNull(),
+    agencyType: agencyTypeEnum("agency_type").notNull(),
+    precinct: varchar("precinct").notNull(),
+    severity: severityEnum("severity").notNull(),
+    gid: text("gid").notNull(),
+    oid: text("oid").notNull(),
+    nodeId: text("node_id").notNull(),
+    sector: text("sector").notNull(),
+    textAddress: varchar("text_address"),
+    coordinates: point("coordinates").notNull(),
+    sublocality: varchar("sublocality"),
+    status: varchar("status").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+    date: date("date").notNull(),
+    assignedUnits: text("assigned_units").array().notNull(),
+  },
+  (table) => ({
+    statusIdx: index("idx_archived_incidents_status").on(table.status),
+    dateIdx: index("idx_archived_incidents_date").on(table.date),
   }),
 );
