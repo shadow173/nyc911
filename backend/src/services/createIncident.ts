@@ -87,6 +87,8 @@ try {
           const createdJob = createdJobArray[0]
 
           addNoteToIncident(createdJob.id, `JOB CREATED AT TIME: ${currentTimestampInEST}`)
+          addNoteToIncident(createdJob.id, `UNIT(S) INITIALLY ASSIGNED: ${assignedUnits.join(', ')}`)
+
           return { message: 'New incident created', incident: createdJob };
 
         }

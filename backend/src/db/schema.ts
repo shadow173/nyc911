@@ -76,6 +76,7 @@ export const incidents = pgTable(
   (table) => ({
     statusIdx: index("idx_incidents_status").on(table.status),
     dateIdx: index("idx_incidents_date").on(table.date),
+
   }),
 );
 
