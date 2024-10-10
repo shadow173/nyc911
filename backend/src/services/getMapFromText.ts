@@ -9,19 +9,19 @@ interface PrecinctInfo {
   precinctAndSector: string | null;
 }
 interface Map {
-  latitude: number | null,
-  longitude: number | null,
-  precinct: string | null,
-  patrolBoro: string | null,
-  precinctAndSector: string | null,
-  title: string | null,
-  layer: any,
-  neighbourhood: string | null,
-  gid: string | null,
-  id: string | null,
-  source: string | null,
-  source_id: string | null,
-  node: string | null,
+  latitude: number | null;
+  longitude: number | null;
+  precinct: string | null;
+  patrolBoro: string | null;
+  precinctAndSector: string | null;
+  title: string | null;
+  layer: any;
+  neighbourhood: string | null;
+  gid: string | null;
+  id: string | null;
+  source: string | null;
+  source_id: string | null;
+  node: string | null;
   error?: string; //  optional
 }
 
@@ -48,9 +48,12 @@ export const sendToMapsAPI = async (address: string) => {
   return body;
 };
 
-export const getPrecinctFromCoordinates = async (latitude: number, longitude: number): Promise<PrecinctInfo | null> =>{
-  const lat = latitude
-  const long = longitude
+export const getPrecinctFromCoordinates = async (
+  latitude: number,
+  longitude: number,
+): Promise<PrecinctInfo | null> => {
+  const lat = latitude;
+  const long = longitude;
   try {
     const result = await db
       .select({
@@ -63,14 +66,14 @@ export const getPrecinctFromCoordinates = async (latitude: number, longitude: nu
         sql`ST_Contains(
           ${precincts.geometry},
           ST_SetSRID(ST_Point(${longitude}, ${latitude}), 4326)
-        )`
+        )`,
       )
       .limit(1);
 
     if (result.length > 0) {
       return result[0];
     } else {
-      console.warn('No precinct found for the given coordinates.');
+      console.warn("No precinct found for the given coordinates.");
       return null;
     }
   } catch (err: any) {
@@ -79,16 +82,19 @@ export const getPrecinctFromCoordinates = async (latitude: number, longitude: nu
   }
 };
 
-
 export const getMapFromText = async (textAddress: string): Promise<Map> => {
   try {
     // Send to API and get information back (placeholder for now)
     const firstObjectReturned = await sendToMapsAPI(textAddress);
 
-    if (firstObjectReturned.features && firstObjectReturned.features.length > 0) {
+    if (
+      firstObjectReturned.features &&
+      firstObjectReturned.features.length > 0
+    ) {
       const firstFeature = firstObjectReturned.features[0];
       const { coordinates } = firstFeature.geometry;
-      const { name, layer, neighbourhood, gid, id, source, source_id } = firstFeature.properties;
+      const { name, layer, neighbourhood, gid, id, source, source_id } =
+        firstFeature.properties;
 
       // Extract the 'n' value from the id
       const nodeMatch = id.match(/n(\d+)/);
@@ -99,7 +105,10 @@ export const getMapFromText = async (textAddress: string): Promise<Map> => {
       const longitude = coordinates[0];
 
       // Get precinct data
-      const precinctData = await getPrecinctFromCoordinates(latitude, longitude);
+      const precinctData = await getPrecinctFromCoordinates(
+        latitude,
+        longitude,
+      );
 
       if (precinctData) {
         const { precinct, patrolBoro, precinctAndSector } = precinctData;
@@ -145,5 +154,3 @@ export const getMapFromText = async (textAddress: string): Promise<Map> => {
     };
   }
 };
-
-console.log(await getMapFromText("W 34 and 6"));
