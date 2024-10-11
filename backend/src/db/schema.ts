@@ -18,14 +18,48 @@ import { relations } from "drizzle-orm";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: varchar("username").unique().notNull(),
   email: varchar("email").unique().notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
   password: varchar("password").notNull(),
+  isEmailVerified: boolean("is_email_verified").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(false), // Account activation status
+  agencyId: integer("agency_id").references(() => agencies.id),
+  agencyEmail: varchar("agency_email"),
+  isAgencyEmailVerified: boolean("is_agency_email_verified").default(false),
+  needsManualApproval: boolean("needs_manual_approval").default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const agencies = pgTable("agencies", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull(),
+  emailDomain: varchar("email_domain"), // e.g., 'nypd.org'
+  requiresManualApproval: boolean("requires_manual_approval").default(false),
+});
+export const verificationTokens = pgTable("verification_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  type: varchar("type").notNull(), // 'email_verification' or 'agency_email_verification'
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export const manualApprovals = pgTable("manual_approvals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fullName: varchar("full_name").notNull(),
+  reasonForJoining: text("reason_for_joining").notNull(),
+  emtId: varchar("emt_id"),
+  emtCertificationUrl: varchar("emt_certification_url"), // URL to uploaded document
+  isApproved: boolean("is_approved").default(false),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
 export const precincts = pgTable('precincts', {
   id: serial('id').primaryKey(),
   precinct: text('precinct'),
