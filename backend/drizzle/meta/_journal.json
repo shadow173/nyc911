@@ -71,6 +71,13 @@
       "when": 1728496601283,
       "tag": "0010_wooden_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1728671350333,
+      "tag": "0011_chemical_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }
