@@ -37,6 +37,7 @@ const app = new Elysia()
   .post("/preemptUnit", preemptUnitAPI, {
     body: t.Object({
       unitId: t.String(),
+      apiKey: t.String(),
     }),
   })
   .post("/closeIncident", markIncident, {
@@ -47,6 +48,7 @@ const app = new Elysia()
         apiKey: t.String(),
     })
   })
+  // add endpoint properly filter use the [id] in api to get the incident info for that specific incident and also get archived incidents at the same location
   .get("/", "hi")
   .listen(port);
 

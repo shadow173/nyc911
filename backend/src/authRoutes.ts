@@ -1,18 +1,19 @@
 import { createAccount } from "./services/createAccount";
 import { loginUser } from "./services/loginAccount";
-import { Elysia, t } from "elysia";
-export const authRoutes = new Elysia({ prefix: "/auth" })
-  .post("create-user", createAccount, {
-    // i will put my function in my second body. // this is destructuring context I think
+import { Elysia, t} from 'elysia'
+export const authRoutes = new Elysia({ prefix: '/auth'})
+.post('create-user', createAccount, { // i will put my function in my second body. // this is destructuring context I think
     body: t.Object({
-      email: t.String(),
-      name: t.String(),
-      password: t.String(),
-    }),
-  })
-  .post("/login", loginUser, {
+        email: t.String(),
+        name: t.String(),
+        password: t.String()
+    })
+})
+.post('/login', loginUser, {
     body: t.Object({
-      email: t.String(),
-      password: t.String(),
-    }),
-  });
+        email: t.String(),
+        password: t.String()
+    })
+})
+
+    

@@ -9,7 +9,7 @@ export const addNoteUpdate = async ({body}:any): Promise<object> => {
 // add authentication before all this!!
 // this is a very basic implementation
     const { unitId, note, apiKey } = body
-    if(!checkAPIKey(apiKey)){
+    if(!(await checkAPIKey(apiKey))){
         logger.error("Invalid key or no key attempted to add note to incident.")
         return error(401, "Unauthorized")
     }

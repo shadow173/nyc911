@@ -6,7 +6,7 @@ import logger from "../utils/logger";
 
 export const markIncident = async ({ body }: any) => {
     const { unitId, disposition, message, apiKey } = body;
-    const checkedKey = await checkAPIKey(apiKey);
+    const checkedKey =  checkAPIKey(apiKey);
 
     if (checkedKey) {
         try {
