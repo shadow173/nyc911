@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
 export const precincts = pgTable('precincts', {
   id: serial('id').primaryKey(),
   precinct: text('precinct'),
@@ -81,6 +82,8 @@ export const incidents = pgTable(
   }),
 );
 
+
+
 export const incidentsRelations = relations(incidents, ({ many }) => ({
   incidentUpdates: many(incidentUpdates),
 }));
@@ -114,6 +117,7 @@ export const incidentUpdatesRelations = relations(
     }),
   }),
 );
+
 
 
 export const archivedIncidents = pgTable(

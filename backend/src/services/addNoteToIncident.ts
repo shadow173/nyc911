@@ -58,6 +58,7 @@ export async function addNoteToIncident(
         message: noteToAdd,
         timestamp: currentTimestampInEST,
       });
+      await db.update(incidents).set({ updatedAt: currentTimestampInEST}).where(eq(incidents.id, incidentIdToUse))
   
       return 'Note added to incident successfully';
     } catch (e) {

@@ -5,6 +5,8 @@ import { addNoteUpdate } from "./controllers/addNoteUpdate";
 import { createIncident } from "./services/createIncident";
 import { preemptUnitAPI } from "./controllers/preemptUnit";
 import { getIncidents } from "./controllers/getIncidents";
+import { markIncident } from "./controllers/markIncident";
+
 const port: number = 3000;
 
 const app = new Elysia()
@@ -13,6 +15,7 @@ const app = new Elysia()
     // i will put my function in my second body. // this is destructuring context I think
     body: t.Object({
       incidentType: t.String(),
+      apiKey: t.String(),
       description: t.String(),
       textAddress: t.String(),
       assignedUnits: t.Array(t.String()),
@@ -27,13 +30,22 @@ const app = new Elysia()
   .post("/addNoteToIncident", addNoteUpdate, {
     body: t.Object({
       unitId: t.String(),
-      noteDescription: t.String(),
+      note: t.String(),
+      apiKey: t.String(),
     }),
   })
   .post("/preemptUnit", preemptUnitAPI, {
     body: t.Object({
       unitId: t.String(),
     }),
+  })
+  .post("/closeIncident", markIncident, {
+    body: t.Object({
+        unitId: t.String(),
+        disposition: t.String(),
+        message: t.String(),
+        apiKey: t.String(),
+    })
   })
   .get("/", "hi")
   .listen(port);

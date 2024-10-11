@@ -6,7 +6,7 @@ export async function preemptUnitAPI({ body, cookie }: any) {
   const { unitId } = body;
   // add authentication before all this!!
 
-  const preemptedResponse = preemptUnit(unitId);
+  const preemptedResponse = await preemptUnit(unitId);
   return {
     status: 200,
     preemptedResponse,

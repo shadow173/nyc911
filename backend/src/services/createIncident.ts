@@ -10,10 +10,13 @@ import {
   preemptUnit,
 } from "./getLastUnitIncident";
 import logger from "../utils/logger"; // Adjust the path accordingly
+import { setIncidentActive } from "./setIncidentActive";
+import { checkAPIKey } from "./checkAPIKey";
+import { error } from "elysia";
 
 type Incident = typeof incidents.$inferInsert;
 
-export async function createIncident({ body, cookie }: any) {
+export async function createIncident({ body }: any) {
   // Get current date in EST for the 'date' field (formatted as YYYY-MM-DD)
   const currentDateInEST = DateTime.now()
     .setZone("America/New_York")
@@ -32,7 +35,13 @@ export async function createIncident({ body, cookie }: any) {
     agencyType,
     severity,
     rerouted,
+    apiKey
   } = body;
+
+    if(!await checkAPIKey(apiKey)){
+      logger.warn("Invalid key or no key attempted to create incident")
+      return error(401, "Unauthorized")
+    }
   logger.info("Creating new incident", {
     incidentType,
     textAddress,
@@ -56,7 +65,7 @@ export async function createIncident({ body, cookie }: any) {
       // Add note to existing incident
       note = `Another unit assigned to same address. Description: ${description}\nCall Type: ${incidentType}`;
       await addNoteToIncident(existingIncidentByInputAddress[0].id, note);
-
+      await setIncidentActive(existingIncidentByInputAddress[0].id)
       await Promise.all(
         assignedUnits.map((unitId: string) =>
           assignUnitToIncident(unitId, existingIncidentByInputAddress[0].id),

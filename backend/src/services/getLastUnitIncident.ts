@@ -80,8 +80,8 @@ export async function assignUnitToIncident(unitId: string, incidentId: number) {
 
 // add note
 // and also add note to assignedunit functionality
-export async function preemptUnit(unitId: string) {
-    logger.info('Preempting Unit from assignment: ', {unitId})
+export async function preemptUnit(unitId: string):Promise<object> {
+    logger.info('Preempting Unit from assignment: ' + unitId)
     const incidentToPreempt = await getLastUnitIncidents(unitId);
     if (incidentToPreempt) {
       await db.execute(
@@ -95,7 +95,7 @@ export async function preemptUnit(unitId: string) {
           .set({ status: 'pending' })
           .where(eq(incidents.id, incidentToPreempt[0].id));
         logger.info('Unit removed from assignment and incident moved to pending')
-        const preemptedUnitMessage = "Unit " + unitId + "preempted from incident"
+        const preemptedUnitMessage = "Unit " + unitId + " preempted from incident"
         await addNoteToIncident(incidentToPreempt[0].id, preemptedUnitMessage)
         return {
           message: "Incident updated to pending and unit removed from assignment."
