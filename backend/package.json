@@ -9,6 +9,8 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
+    "@elysiajs/bearer": "^1.1.2",
+    "@elysiajs/cors": "^1.1.1",
     "@neondatabase/serverless": "^0.9.5",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/luxon": "^3.4.2",

@@ -90,6 +90,8 @@ export const incidents = pgTable(
     latitude: doublePrecision("latitude").notNull(),
     longitude: doublePrecision("longitude").notNull(),
     inputAddress: text("input_address").notNull(),
+    createdTimestamp: timestamp('created_timestamp').notNull().defaultNow(),
+    updatedTimestamp: timestamp('updated_timestamp').notNull().defaultNow(),
     addressType: text("address_type").notNull(),
     patrolBoro: varchar("patrol_boro").notNull(), // the patrol boro. 
     incidentType: varchar("incident_type").notNull(), // the code, could be 54-U for PD. EMS will be the call type, injury, arrest, etc

@@ -1,3 +1,4 @@
+import { getUser } from "./controllers/getUser";
 import {  registerUser } from "./controllers/registerUser";
 import { loginUser } from "./services/loginAccount";
 import { Elysia, t} from 'elysia'
@@ -15,3 +16,4 @@ export const authRoutes = new Elysia({ prefix: '/auth'})
         password: t.String()
     })
 })
+.get('/me', getUser)

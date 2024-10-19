@@ -6,10 +6,18 @@ import { createIncident } from "./services/createIncident";
 import { preemptUnitAPI } from "./controllers/preemptUnit";
 import { getIncidentById, getIncidents } from "./controllers/getIncidents";
 import { markIncident } from "./controllers/markIncident";
+import { cors } from '@elysiajs/cors'
+import bearer from "@elysiajs/bearer";
 
-const port: number = 3000;
+const port: number = 3001;
 
 const app = new Elysia()
+  .use(cors())
+  .use(cors({
+    origin: process.env.FRONTEND_URL, 
+    credentials: true
+  }))
+  .use(bearer())
   .use(authRoutes)
   .post("/incidents", createIncident, {
     // i will put my function in my second body. // this is destructuring context I think
@@ -24,8 +32,8 @@ const app = new Elysia()
     }),
   })
   .get("/incidents", getIncidents) // to display each on map or get a list
-  // add different filter options such as by agency, by severity, by type, by status
-  // add get incident by id
+  // add different filter options such as by agency, by severity, by type, precinct, patrolboro, by status
+  // ex .get("/incidents/severity/id", getIncidents) and other options
 
   .post("/addNoteToIncident", addNoteUpdate, {
     body: t.Object({

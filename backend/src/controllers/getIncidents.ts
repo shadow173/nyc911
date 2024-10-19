@@ -7,10 +7,10 @@ import { eq } from 'drizzle-orm'
 
 export const getIncidents = async ({ cookie }:any): Promise<object> => {
   // implement authentication
-  const token  = cookie.token.value
-  if(!verifyTokenAndActive(token)){
-    return error(401, "Unauthorized")
-  }
+  // const token  = cookie.token.value
+  // if(!verifyTokenAndActive(token)){
+  //   return error(401, "Unauthorized")
+  // }
 
   try {
     logger.info("Fetching incidents");
