@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { precincts } from "../db/schema";
 import { db } from "../utils/db";
 import type { StringMappingType } from "typescript";
+import logger from "../utils/logger";
 
 interface PrecinctInfo {
   precinct: string | null;
@@ -96,10 +97,15 @@ export const getMapFromText = async (textAddress: string): Promise<Map> => {
       const { name, layer, neighbourhood, gid, id, source, source_id } =
         firstFeature.properties;
 
+        console.log(id)
       // Extract the 'n' value from the id
-      const nodeMatch = id.match(/n(\d+)/);
-      const node = nodeMatch ? nodeMatch[1] : null; // Extracts the 'n' value if it exists
-
+      const nodeMatch = gid.match(/:([^:]+)$/);
+      const node = nodeMatch ? nodeMatch[1] : null;
+      
+      if(node === null){
+        logger.fatal("NO NODE ID FOUND")
+        throw new Error("NO NODE FOUND")
+      }
       // Coordinates are reversed in the array
       const latitude = coordinates[1];
       const longitude = coordinates[0];
@@ -126,7 +132,7 @@ export const getMapFromText = async (textAddress: string): Promise<Map> => {
           id: id || "N/A",
           source: source || "N/A",
           source_id: source_id || "N/A",
-          node: node || "N/A", // Include the extracted 'node' value in the return object
+          node: node, // Include the extracted 'node' value in the return object
         };
       } else {
         throw new Error("Not a NYC address. Unable to find precinct data!");

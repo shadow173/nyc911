@@ -4,7 +4,7 @@ import { authRoutes } from "./authRoutes";
 import { addNoteUpdate } from "./controllers/addNoteUpdate";
 import { createIncident } from "./services/createIncident";
 import { preemptUnitAPI } from "./controllers/preemptUnit";
-import { getIncidents } from "./controllers/getIncidents";
+import { getIncidentById, getIncidents } from "./controllers/getIncidents";
 import { markIncident } from "./controllers/markIncident";
 
 const port: number = 3000;
@@ -48,7 +48,7 @@ const app = new Elysia()
         apiKey: t.String(),
     })
   })
-  // add endpoint properly filter use the [id] in api to get the incident info for that specific incident and also get archived incidents at the same location
+  .get("/incident/:id", getIncidentById)
   .get("/", "hi")
   .listen(port);
 

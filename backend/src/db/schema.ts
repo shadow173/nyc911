@@ -37,6 +37,7 @@ export const agencies = pgTable("agencies", {
   emailDomain: varchar("email_domain"), // e.g., 'nypd.org'
   requiresManualApproval: boolean("requires_manual_approval").default(false),
 });
+
 export const verificationTokens = pgTable("verification_tokens", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")
@@ -112,6 +113,7 @@ export const incidents = pgTable(
   (table) => ({
     statusIdx: index("idx_incidents_status").on(table.status),
     dateIdx: index("idx_incidents_date").on(table.date),
+    nodeIdIdx: index("idx_incidents_node_id").on(table.nodeId), 
 
   }),
 );
@@ -184,5 +186,7 @@ export const archivedIncidents = pgTable(
   (table) => ({
     statusIdx: index("idx_archived_incidents_status").on(table.status),
     dateIdx: index("idx_archived_incidents_date").on(table.date),
+    nodeIdIdx: index("idx_archived_incidents_node_id").on(table.nodeId), 
   }),
 );
+

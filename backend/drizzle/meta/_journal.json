@@ -78,6 +78,20 @@
       "when": 1728671350333,
       "tag": "0011_chemical_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1729297638201,
+      "tag": "0012_jazzy_timeslip",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1729298097095,
+      "tag": "0013_flippant_kingpin",
+      "breakpoints": true
     }
   ]
 }
