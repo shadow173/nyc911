@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useRef  } from 'react';
+import React, { useState, useEffect, useRef, useMemo  } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Filter, Eye } from 'lucide-react';
+import { ChevronDown, ChevronUp, Filter, Eye } from 'lucide-react';
 
 interface Incident {
   id: number;
@@ -55,6 +55,7 @@ export default function IncidentsTable() {
     const [patrolBoroFilter, setPatrolBoroFilter] = useState<string>('');
     const [precinctFilter, setPrecinctFilter] = useState<string>('');
     const [precincts, setPrecincts] = useState<string[]>([]);
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const router = useRouter();
     const api = process.env.NEXT_PUBLIC_API_ROUTE;
   
@@ -119,9 +120,8 @@ export default function IncidentsTable() {
       return sortIncidents(updatedIncidents);
     });
   };
-
   const sortIncidents = (incidentsToSort: Incident[]): Incident[] => {
-    return incidentsToSort.sort((a, b) => {
+    return [...incidentsToSort].sort((a, b) => {
       // First, sort by severity
       const severityDiff = severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity);
       if (severityDiff !== 0) return severityDiff;
@@ -134,10 +134,25 @@ export default function IncidentsTable() {
       // If patrolBoro is the same, sort by precinct
       if (a.precinct !== b.precinct) return a.precinct.localeCompare(b.precinct);
       
-      // If all above are the same, sort by updatedAt (most recent first)
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      // If all above are the same, sort by updatedAt based on sortOrder
+      const timeA = new Date(a.updatedAt).getTime();
+      const timeB = new Date(b.updatedAt).getTime();
+      return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
     });
   };
+  const filteredAndSortedIncidents = useMemo(() => {
+    let filtered = incidents;
+    if (severityFilter) {
+        filtered = filtered.filter(incident => incident.severity === severityFilter);
+    }
+    if (patrolBoroFilter) {
+        filtered = filtered.filter(incident => incident.patrolBoro === patrolBoroFilter);
+    }
+    if (precinctFilter) {
+        filtered = filtered.filter(incident => incident.precinct === precinctFilter);
+    }
+    return sortIncidents(filtered);
+}, [incidents, severityFilter, patrolBoroFilter, precinctFilter, sortOrder]);
 
   
   useEffect(() => {
@@ -151,12 +166,16 @@ export default function IncidentsTable() {
     if (precinctFilter) {
       filtered = filtered.filter(incident => incident.precinct === precinctFilter);
     }
-    setFilteredIncidents(filtered);
-  }, [severityFilter, patrolBoroFilter, precinctFilter, incidents]);
+  }, [severityFilter, patrolBoroFilter, precinctFilter, incidents, sortOrder]);
 
   const handleViewDetails = (id: number) => {
     router.push(`/dashboard/incident/${id}`);
   };
+
+  const toggleSortOrder = () => {
+    setSortOrder(prevOrder => prevOrder === 'asc' ? 'desc' : 'asc');
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <h1 className="text-3xl font-bold mb-6">Incidents</h1>
@@ -218,13 +237,19 @@ export default function IncidentsTable() {
               <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider">Patrol Boro</th>
               <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider">Precinct</th>
               <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider">Sector</th>
-              <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider">Last Updated</th>
+              <th 
+                className="px-6 py-3 text-xs font-medium uppercase tracking-wider cursor-pointer"
+                onClick={toggleSortOrder}
+              >
+                Last Updated
+                {sortOrder === 'asc' ? <ChevronUp className="inline ml-1" /> : <ChevronDown className="inline ml-1" />}
+              </th>
               <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider">Age</th>
               <th className="px-6 py-3 text-xs font-medium uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
-            {filteredIncidents.map((incident) => (
+          {filteredAndSortedIncidents.map((incident) => (
               <tr 
                 key={incident.id} 
                 className={`hover:bg-gray-750 ${incident.isNew ? 'animate-flash' : ''}`}

@@ -1,4 +1,4 @@
-import { Elysia, t } from "elysia";
+import { Elysia, error, t } from "elysia";
 import { pool } from "./utils/db";
 import { authRoutes } from "./authRoutes";
 import { addNoteUpdate } from "./controllers/addNoteUpdate";
@@ -57,7 +57,7 @@ const app = new Elysia()
     })
   })
   .get("/incident/:id", getIncidentById)
-  .get("/", "hi")
+  .get("/", error(401, "Unauthorized"))
   .listen(port);
 
 console.log("running on port: " + port);
