@@ -11,7 +11,7 @@ export const authRoutes = new Elysia({ prefix: '/auth'})
   credentials: true
 }))
 .use(bearer())
-.post('register', registerUser, { // i will put my function in my second body. // this is destructuring context I think
+.post('register', registerUser, {
     body: t.Object({
         email: t.String(),
         name: t.String(),

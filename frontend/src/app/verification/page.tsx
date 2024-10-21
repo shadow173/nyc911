@@ -1,4 +1,8 @@
 'use client'
+
+// ADD FUNCTIONALITY TO CHECK AGENCY EMAIL VERIFICATION!!
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -20,7 +24,7 @@ interface User {
   needsManualApproval: boolean;
 }
 
-const STEPS = 4;
+const STEPS = 5;
 
 export default function VerificationPage() {
   const router = useRouter();
@@ -76,10 +80,12 @@ export default function VerificationPage() {
   const determineStartingStep = (userData: User) => {
     if (!userData.emailVerified) {
       setCurrentStep(0);
-    } else if (!userData.phoneVerified) {
+    } else if (!userData.phoneNumber) {
       setCurrentStep(1);
-    } else {
+    } else if (!userData.phoneVerified) {
       setCurrentStep(2);
+    } else {
+      setCurrentStep(3);
     }
   };
 
@@ -87,7 +93,7 @@ export default function VerificationPage() {
     return (
       <div className="w-full flex justify-between mb-6">
         {[...Array(STEPS)].map((_, index) => (
-          <div key={index} className="w-1/5 h-2 bg-gray-600 rounded-full overflow-hidden">
+          <div key={index} className="w-1/6 h-2 bg-gray-600 rounded-full overflow-hidden">
             <div 
               className={`h-full ${index <= currentStep ? 'bg-blue-500' : 'bg-gray-600'} transition-all duration-300 ease-in-out`}
               style={{ width: index <= currentStep ? '100%' : '0%' }}
@@ -137,6 +143,27 @@ export default function VerificationPage() {
     }
   };
 
+  const handlePhoneNumberSubmit = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/setPhoneNumber`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber }),
+        credentials: 'include'
+      });
+      if (response.ok) {
+        setCurrentStep(2);
+      } else {
+        setError('Failed to set phone number. Please try again.');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handlePhoneCodeChange = (index: number, value: string) => {
     if (value.length > 1) return;
     const newCode = [...phoneCode];
@@ -165,7 +192,7 @@ export default function VerificationPage() {
         credentials: 'include'
       });
       if (response.ok) {
-        setCurrentStep(2);
+        setCurrentStep(3);
       } else {
         setError('Invalid code. Please try again.');
       }
@@ -187,9 +214,9 @@ export default function VerificationPage() {
       });
       const data = await response.json();
       if (data.emailValid === false) {
-        setCurrentStep(3);
-      } else if (data.emailValid === true) {
         setCurrentStep(4);
+      } else if (data.emailValid === true) {
+        setCurrentStep(5);
       } else {
         setError('An error occurred. Please try again.');
       }
@@ -271,7 +298,25 @@ export default function VerificationPage() {
             </Button>
           </>
         );
-      case 1:
+        case 1:
+        return (
+          <>
+            <CardTitle className="text-xl font-bold text-center text-white mb-4">Phone Number Entry</CardTitle>
+            <p className="text-gray-300 mb-4">Please enter your phone number. We need your phone to prevent fraud and abuse.</p>
+            <Input
+              type="tel"
+              placeholder="Phone Number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
+            />
+            <p className="text-sm text-gray-400 mb-4">By entering your phone number, you agree to receive a one-time text message to verify your number.</p>
+            <Button onClick={handlePhoneNumberSubmit} disabled={isLoading} className="w-full">
+              Submit Phone Number
+            </Button>
+          </>
+        );
+      case 2:
         return (
             <>
             <CardTitle className="text-xl font-bold text-center text-white mb-4">Phone Verification</CardTitle>
@@ -297,7 +342,7 @@ export default function VerificationPage() {
             </Button>
           </>
         );
-      case 2:
+      case 3:
         return (
           <>
             <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Verification</CardTitle>
@@ -314,7 +359,7 @@ export default function VerificationPage() {
             </Button>
           </>
         );
-      case 3:
+      case 4:
         return (
           <>
             <CardTitle className="text-xl font-bold text-center text-white mb-4">Manual Verification</CardTitle>
@@ -355,7 +400,7 @@ export default function VerificationPage() {
             </Button>
           </>
         );
-      case 4:
+      case 5:
         return (
           <>
             <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Email Verification</CardTitle>

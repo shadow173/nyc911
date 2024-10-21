@@ -30,7 +30,7 @@ export const registerUser = async ({ body, cookie }: any) => {
         password: hashedPassword,
         isEmailVerified: false,
     }).returning()
-
+    console.log("CREATING USER")
     // set cookie
     const signedToken =  signToken({email: email, id: user[0].id, isActive: false, isEmailVerified: false, isAgencyEmailVerified:  false, needsManualApproval: false})
     
@@ -46,7 +46,7 @@ export const registerUser = async ({ body, cookie }: any) => {
         // add expires
     }
     cookie.token.value = signedToken
-    
+    console.log("COOKIE SIGNED")
     // redirect user to 
     // generate email token, expires in 12 hours
 
