@@ -25,6 +25,8 @@ export const users = pgTable("users", {
   isActive: boolean("is_active").notNull().default(false), // Account activation status
   agencyId: integer("agency_id").references(() => agencies.id),
   agencyEmail: varchar("agency_email"),
+  phoneNumber: text("phone_number"),
+  phoneVerified: boolean("phone_verified").default(false),
   isAgencyEmailVerified: boolean("is_agency_email_verified").default(false),
   needsManualApproval: boolean("needs_manual_approval").default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),

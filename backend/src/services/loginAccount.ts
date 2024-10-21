@@ -32,12 +32,17 @@ export const loginUser = async ({ body, set, cookie, error}: any ) => {
  
      const cookieOptions: any = {
          secure: isDevelopment ? false : true,
+        //  httpOnly: true,
          sameSite: isDevelopment ? 'Strict' : 'Lax', // Strict for development, Lax for others
          maxAge: 43200, // 12 hours
      };
- 
+     
+
      if (!isDevelopment) {
          cookieOptions.domain = 'nyccommand.com';
+     } else{
+        cookieOptions.domain = 'localhost';
+
      }
      cookie.token.value = token;
      cookie.token.set(cookieOptions);

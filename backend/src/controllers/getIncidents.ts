@@ -5,12 +5,12 @@ import { verifyToken, verifyTokenAndActive } from "../utils/jwt";
 import logger from "../utils/logger";
 import { eq } from 'drizzle-orm'
 
-export const getIncidents = async ({ cookie }:any): Promise<object> => {
+export const getIncidents = async ({ cookie, request }:any): Promise<object> => {
   // implement authentication
-  // const token  = cookie.token.value
-  // if(!verifyTokenAndActive(token)){
-  //   return error(401, "Unauthorized")
-  // }
+  const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+  if(!verifyTokenAndActive(token)){
+    return error(401, "Unauthorized")
+  }
 
   try {
     logger.info("Fetching incidents");
@@ -35,9 +35,9 @@ export const getIncidentById = async ({cookie, params}:any) => {
   
   // verify token first
 
-  // if(!verifyTokenAndActive(token)){
-  //   return error(401, "Unauthorized")
-  // }
+  if(!verifyTokenAndActive(token)){
+    return error(401, "Unauthorized")
+  }
 
   try{
     // perhaps add functionality to search for nearby calls that were recently generated. Possibly to find duplicate incidents

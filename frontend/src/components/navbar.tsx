@@ -12,6 +12,8 @@ const Navbar = () => {
   const navItems = [
     { href: '/dashboard', label: 'Incidents' },
     { href: '/dashboard/map', label: 'Map' },
+    { href: '/dashboard/audio', label: 'Audio' },
+
   ];
 
   const isActive = (path: string) => pathname === path;
