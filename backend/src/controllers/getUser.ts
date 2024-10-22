@@ -22,8 +22,8 @@ export const getUser = async ({ cookie, request }:any) => {
          agencyEmailVerified: userToken.isAgencyEmailVerified,
          needsManualApproval: userToken.needsManualApproval,
          phoneNumber: userToken.phoneNumber,
-         phoneVerified: userToken.phoneVerified
-
+         phoneVerified: userToken.phoneVerified,
+        isAdmin: userToken.isAdmin,
         }
         return userToReturn
     }

@@ -8,6 +8,7 @@ import { getIncidentById, getIncidents } from "./controllers/getIncidents";
 import { markIncident } from "./controllers/markIncident";
 import { cors } from '@elysiajs/cors'
 import bearer from "@elysiajs/bearer";
+import { addAgency, getAgencies, removeAgency, updateAgency } from "./controllers/admin";
 
 const port: number = 3001;
 
@@ -56,6 +57,10 @@ const app = new Elysia()
         apiKey: t.String(),
     })
   })
+  .get('/agencies', getAgencies)
+  .post('/agencies/add', addAgency)
+  .post('/agencies/remove', removeAgency)
+  .post('/agencies/update', updateAgency)
   .get("/incident/:id", getIncidentById)
   .get("/", error(401, "Unauthorized"))
   .listen(port);
