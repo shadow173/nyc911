@@ -63,7 +63,7 @@ const SecurityGuidelinesModal = ({ open, onOpenChange }: { open: boolean; onOpen
                 <h4 className="font-medium text-red-400 mb-2">Account & Access Violations:</h4>
                 <ul className="list-disc list-inside space-y-2 text-sm text-gray-300">
                   <li>Sharing login credentials with ANY other individual</li>
-                  <li>Using another person's credentials or access tokens</li>
+                  <li>Using another person&rsquo;s credentials or access tokens</li>
                   <li>Attempting to access the system using multiple accounts</li>
                   <li>Maintaining concurrent active sessions from different locations</li>
                 </ul>
