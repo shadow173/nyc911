@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   isEmailVerified: boolean("is_email_verified").notNull().default(false),
   personalVerificationCode: varchar("personal_verification_code"),
   isActive: boolean("is_active").notNull().default(false), // Account activation status
+  isDisabled: boolean("is_disabled").notNull().default(false),
   agencyId: integer("agency_id").references(() => agencies.id),
   agencyEmail: varchar("agency_email"),
   agencyVerificationCode: varchar("agency_verification_code"),

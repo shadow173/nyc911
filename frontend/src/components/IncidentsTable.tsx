@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronUp, Filter, Eye } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -107,18 +107,18 @@ export default function IncidentsTable() {
       };
     
 
-  const updateIncidents = (newIncidents: Incident[]) => {
-    setIncidents(prevIncidents => {
-      const updatedIncidents = newIncidents.map(incident => {
-        const existingIncident = prevIncidents.find(i => i.id === incident.id);
-        if (!existingIncident) {
-          return { ...incident, isNew: true };
-        }
-        return incident;
-      });
-      return sortIncidents(updatedIncidents);
-    });
-  };
+  // const updateIncidents = (newIncidents: Incident[]) => {
+  //   setIncidents(prevIncidents => {
+  //     const updatedIncidents = newIncidents.map(incident => {
+  //       const existingIncident = prevIncidents.find(i => i.id === incident.id);
+  //       if (!existingIncident) {
+  //         return { ...incident, isNew: true };
+  //       }
+  //       return incident;
+  //     });
+  //     return sortIncidents(updatedIncidents);
+  //   });
+  // };
   const sortIncidents = (incidentsToSort: Incident[]): Incident[] => {
     return [...incidentsToSort].sort((a, b) => {
       // First, sort by severity

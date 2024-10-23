@@ -53,7 +53,7 @@ export const addAgency = async ({cookie, request, body}:any) => {
             if(!user.isAdmin){
                 return error(401, "Unauthorized")
             }
-            await db.insert(agencies).values({ name: name, emailDomain: emailDomain, requiresManualApproval: requiresManualApproval })
+            await db.insert(agencies).values({ name: name, emailDomain: emailDomain.toLowerCase(), requiresManualApproval: requiresManualApproval })
             const agenciesList = await db.select().from(agencies)
             
             return { agenciesList: agenciesList}
@@ -73,7 +73,7 @@ export const addAgency = async ({cookie, request, body}:any) => {
         const verified: any = verifyToken(token);
         if (!verified || !verified.id) {
             throw new Error('Invalid token');
-        }
+        } 
             try{
                 const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
                 if(!user){
@@ -112,7 +112,7 @@ export const addAgency = async ({cookie, request, body}:any) => {
                         return error(401, "Unauthorized")
                     }
                     await db.update(agencies)
-                    .set({ name: name,  emailDomain: emailDomain, requiresManualApproval: requiresManualApproval })
+                    .set({ name: name,  emailDomain: emailDomain.toLowerCase(), requiresManualApproval: requiresManualApproval })
                     .where(eq(agencies.id, id));
                     const agenciesList = await db.select().from(agencies)
                     return { agenciesList: agenciesList}
@@ -121,3 +121,7 @@ export const addAgency = async ({cookie, request, body}:any) => {
                 }
             } 
              
+
+            // set active with button 
+
+            

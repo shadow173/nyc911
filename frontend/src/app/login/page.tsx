@@ -14,7 +14,7 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e:any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -34,6 +34,7 @@ export default function Page() {
         setError('Invalid credentials. Please try api.');
       }
     } catch (err) {
+      console.log(err)
       setError('An error occurred. Please try again later.');
     } finally {
       setIsLoading(false);

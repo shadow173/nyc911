@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "./globals.css";
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Instrument_Sans } from 'next/font/google'

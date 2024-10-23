@@ -36,10 +36,7 @@ interface Incident {
 interface MapPageClientWrapperProps {
   incidents: Incident[];
 }
-interface IncidentsSidebarProps {
-    incidents: Incident[]; // Add this line to include the 'incidents' prop
-    onSelectIncident: (incidentId: number) => void;
-  }
+
 const MapPageClientWrapper: React.FC<MapPageClientWrapperProps> =  () => {
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -71,6 +68,7 @@ const MapPageClientWrapper: React.FC<MapPageClientWrapperProps> =  () => {
 
         // Update the state with new incidents
         setIncidents((prevIncidents) => {
+          console.log(prevIncidents)
           // Compare prevIncidents and newIncidents to detect changes
           // For now, we'll simply replace the state
           return newIncidents;
@@ -84,7 +82,7 @@ const MapPageClientWrapper: React.FC<MapPageClientWrapperProps> =  () => {
     fetchIncidents();
 
     // Set up interval to fetch every second
-    const intervalId = setInterval(fetchIncidents, 1000);
+    const intervalId = setInterval(fetchIncidents, 6000);
 
     // Cleanup function
     return () => clearInterval(intervalId);

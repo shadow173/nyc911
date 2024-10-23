@@ -29,7 +29,6 @@ interface Incident {
   assignedUnits: string[];
 }
 
-const api = process.env.NEXT_PUBLIC_API_ROUTE
 
 const severityColors = {
   'citywide-incident': 'bg-purple-200 text-purple-800',

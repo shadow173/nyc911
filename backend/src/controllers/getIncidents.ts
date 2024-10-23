@@ -7,11 +7,13 @@ import { eq } from 'drizzle-orm'
 
 export const getIncidents = async ({ cookie, request }:any): Promise<object> => {
   // implement authentication
-  const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+  let token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+  if (token?.startsWith("Bearer ")) {
+    token = token.split(' ')[1];
+  }
   if(!verifyTokenAndActive(token)){
     return error(401, "Unauthorized")
   }
-
   try {
     logger.info("Fetching incidents");
     const result = await db.select().from(incidents);
@@ -19,6 +21,7 @@ export const getIncidents = async ({ cookie, request }:any): Promise<object> => 
       status: 200,
       result,
     };
+    
   } catch (e) {
     return {
       status: 500,

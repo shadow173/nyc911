@@ -343,32 +343,41 @@ export const setAgencyEmail = async ({cookie, request, body }:any) => { // THIS 
                 await db
                     .update(users)
                     .set({
+                        agencyEmail: email,
                         totalVerificationAttempts: user.totalVerificationAttempts +1,
                         needsManualApproval: true
                     })
             .where(eq(users.id, verified.id));
-            return {success: true, needsManualApproval: true}
+            return {success: true}
             }
-            // verify email now
-            const now = new Date();
-             const lastVerification = user.lastAgencyEmailVerification ? new Date(user.lastAgencyEmailVerification) : null;
-        
-            if (lastVerification) {
-                const timeDifferenceInSeconds = Math.floor((now.getTime() - lastVerification.getTime()) / 1000);
-                if (timeDifferenceInSeconds < 60) {
-                return error(401, `Please wait ${60 - timeDifferenceInSeconds} seconds before requesting a new code`);
-                }
-            }
+            if(agency.requiresManualApproval){
                 try{
-                    const code = await verifyEmail(email)
                     await db
                     .update(users)
                     .set({
+                        agencyEmail: email,
                         totalVerificationAttempts: user.totalVerificationAttempts +1,
-                        agencyVerificationCode: code,
-                        lastEmailVerification: now,
+                        needsManualApproval: true,
                     })
-                    .where(eq(users.id, verified.id));
+            .where(eq(users.id, verified.id));
+                
+                    return { success: true };
+                } catch(e){
+                    logger.error(e)
+                    error(500, "Internal Server Error, possibly invalid email provided")
+                    
+                }
+            }          
+                try{
+                    await db
+                    .update(users)
+                    .set({
+                        agencyEmail: email,
+                        totalVerificationAttempts: user.totalVerificationAttempts +1,
+                        needsManualApproval: false,
+                    })
+            .where(eq(users.id, verified.id));
+                
                     return { success: true };
                 } catch(e){
                     logger.error(e)
@@ -383,3 +392,139 @@ export const setAgencyEmail = async ({cookie, request, body }:any) => { // THIS 
 
             
             // add one to verification attempts
+
+    export const createAgencyEmailVerificationCode = async ({ cookie, request }:any) => {
+
+
+        const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+            
+        if (!token) {
+            return error(401, "Unauthorized")
+        }
+    
+        const verified: any = verifyToken(token);
+        if (!verified || !verified.id) {
+            return error(401, 'Unauthorized');
+        }
+    
+                    const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
+            if(!user){
+                logger.error("USER NOT FOUND FOR VERIFICATION")
+                return error(500, "Internal Server Error")
+            }
+            const now = new Date();
+            const lastVerification = user.lastAgencyEmailVerification ? new Date(user.lastAgencyEmailVerification) : null;
+            
+            if (lastVerification) {
+                const timeDifferenceInSeconds = Math.floor((now.getTime() - lastVerification.getTime()) / 1000);
+                if (timeDifferenceInSeconds < 60) {
+                    return error(401, `Please wait ${60 - timeDifferenceInSeconds} seconds before requesting a new code`);
+                }
+            }
+            try{
+                if(!user.agencyEmail){
+                    return error(400, "Bad Request")
+                }
+                const code = await verifyEmail(user.agencyEmail)
+                await db
+                .update(users)
+                .set({
+                    agencyVerificationCode: code,
+                    lastAgencyEmailVerification: now,
+                })
+                .where(eq(users.id, verified.id));
+                return { success: true };
+            } catch(e){
+                logger.error(e)
+                error(500, "Internal Server Error, possibly invalid email provided")
+                
+            }
+    }
+            // function to check and if its right update agency email to verified
+            // ensure it checks if manual approval is needed
+
+export const checkAgencyEmailCode = async ({ cookie, request, body }:any) => {
+   
+    const {code} = body
+    const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+            
+    if (!token) {
+        return error(401, "Unauthorized")
+    }
+
+    const verified: any = verifyToken(token);
+    if (!verified || !verified.id) {
+        return error(401, 'Unauthorized');
+    }
+
+                const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
+        if(!user){
+            logger.error("USER NOT FOUND FOR VERIFICATION")
+            return error(500, "Internal Server Error")
+        }
+        const createdCode = user.agencyVerificationCode
+        if(!user.agencyVerificationCode){
+            return error(400, "Bad Request")
+        }
+        if(user.totalVerificationAttempts > 100){
+            return error(429, "Too Many Requests")
+        }
+        await db
+                .update(users)
+                .set({
+                    totalVerificationAttempts: user.totalVerificationAttempts+1,
+                })
+                .where(eq(users.id, verified.id));
+        if(code === createdCode){
+                // update email verified to true
+                await db
+                .update(users)
+                .set({
+                    isAgencyEmailVerified: true,
+                    
+                })
+                .where(eq(users.id, verified.id));
+                return {success: true}
+        }
+        return error(400, "Bad Request")
+}
+
+export const setActive = async ({cookie, request}:any) => {
+    const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+    
+    if (!token) {
+        return error(401, "Unauthorized")
+    }
+    // add rate limiting
+    const verified: any = verifyToken(token);
+    if (!verified || !verified.id) {
+        throw new Error('Invalid token');
+    } 
+        try{
+            const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
+            if(!user){
+                logger.error("USER NOT FOUND FOR VERIFICATION")
+                return error(500, "Internal Server Error")
+            }
+
+            if(user.isAgencyEmailVerified && user.isEmailVerified && user.phoneVerified && !user.needsManualApproval) {
+               
+                try{
+                    await db
+                .update(users)
+                .set({
+                    isActive: true,
+                })
+                .where(eq(users.id, verified.id));
+                }
+                catch(e){
+                    logger.error(e)
+                    return error(500, "Internal Server Error")
+                }
+                return {success: true}
+            }
+            return error(401, "Unauthorized")
+        } catch(e){
+            logger.error(e)
+            return error(500, "Internal Server Error")
+                }        }

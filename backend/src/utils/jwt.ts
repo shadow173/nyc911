@@ -20,16 +20,19 @@ export function verifyTokenAndActive(token: string){
     try{
 
         const tokenToVerify: any = verifyToken(token)
+        
         // object of token values
         if(!tokenToVerify){
             return false;
         }
         console.log({tokenToVerify})
-
-    
-        if(tokenToVerify.isActive === true){
+        if(tokenToVerify.isDisabled === true){
+            return false
+        } else if(tokenToVerify.isActive === true){
             return true
         }
+    
+        
         return false
         
 }

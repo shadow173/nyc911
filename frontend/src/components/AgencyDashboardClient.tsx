@@ -78,6 +78,7 @@ export default function AgencyDashboardClient({ initialAgencies, token }: AdminD
       });
       (e.target as HTMLFormElement).reset();
     } catch (error) {
+      console.log(error)
       toast({
         title: "Error",
         description: "Failed to add agency",
@@ -120,6 +121,8 @@ export default function AgencyDashboardClient({ initialAgencies, token }: AdminD
         description: "Agency updated successfully",
       });
     } catch (error) {
+      console.log(error)
+
       toast({
         title: "Error",
         description: "Failed to update agency",
@@ -152,6 +155,7 @@ export default function AgencyDashboardClient({ initialAgencies, token }: AdminD
         description: "Agency removed successfully",
       });
     } catch (error) {
+      console.log(error)
       toast({
         title: "Error",
         description: "Failed to remove agency",

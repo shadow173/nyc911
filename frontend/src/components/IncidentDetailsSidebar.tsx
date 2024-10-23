@@ -51,7 +51,6 @@ const severityColors = {
   low: 'bg-green-200 text-green-800',
   'non-urgent': 'bg-blue-200 text-blue-800',
 } as const;
-const api = process.env.NEXT_PUBLIC_API_ROUTE
 const IncidentDetailsSidebar: React.FC<IncidentDetailsSidebarProps> = ({ incidentId, onClose }) => {
     const [incident, setIncident] = useState<Incident | null>(null);
     const [incidentUpdates, setIncidentUpdates] = useState<IncidentUpdate[]>([]);

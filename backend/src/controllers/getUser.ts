@@ -24,6 +24,7 @@ export const getUser = async ({ cookie, request }:any) => {
          phoneNumber: userToken.phoneNumber,
          phoneVerified: userToken.phoneVerified,
         isAdmin: userToken.isAdmin,
+        isDisabled: userToken.isDisabled,
         }
         return userToReturn
     }

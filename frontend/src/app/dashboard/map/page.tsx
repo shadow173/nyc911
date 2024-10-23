@@ -79,6 +79,10 @@ export default async function MapPage() {
     const userData = await authResponse.json();
     console.log("User data fetched:", userData);
     // Check if the user is active
+    if (userData.isDisabled) {
+      redirect('/disabled');
+      return null; // Prevent further execution
+    }
     if (!userData.isActive) {
       console.log("User is not active, redirecting to login...");
       redirect('/login');

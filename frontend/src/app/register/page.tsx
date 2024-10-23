@@ -26,7 +26,7 @@ export default function RegisterPage() {
     return re.test(password);
   };
 
-  const handleSubmit = async (e:any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
 
@@ -63,6 +63,7 @@ export default function RegisterPage() {
         setError('Error creating user. Please try again later.');
       }
     } catch (err) {
+      console.log(err)
       setError('An error occurred. Please try again later.');
     } finally {
       setIsLoading(false);

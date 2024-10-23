@@ -25,7 +25,7 @@ export const registerUser = async ({ body, cookie }: any) => {
     // create user
 // with isEmailVerified = false.
     const user = await db.insert(users).values({
-        email: email,
+        email: email.toLowerCase(),
         isAdmin: false,
         password: hashedPassword,
         isEmailVerified: false,

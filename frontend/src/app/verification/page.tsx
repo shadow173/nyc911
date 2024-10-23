@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield } from 'lucide-react';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { CheckCircle } from 'lucide-react';
 
 interface User {
   id: number;
@@ -19,8 +19,13 @@ interface User {
   phoneNumber: string | null;
   phoneVerified: boolean;
   needsManualApproval: boolean;
+  isDisabled: boolean;
 }
-
+ // IMPORTANT MAKE SURE IT MOVES TO NEXT STEP ON EMAIL VERIFICATION PERHAPS ADD A BUTTON
+ // email and phone dont progress to the next page on click , none of them do
+ // createAgencyemailverificationcode gets sent automatically for some reason???
+// very buggy need to address this
+// if i reload it goes to manual approval without verifying my agency email first thats weird
 const STEPS = 5;
 
 export default function VerificationPage() {
@@ -28,15 +33,15 @@ export default function VerificationPage() {
   const [user, setUser] = useState<User | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState(''); // Added state for success messages
+  const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [emailCode, setEmailCode] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [agencyEmail, setAgencyEmail] = useState('');
   const [agencyCode, setAgencyCode] = useState('');
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [emailSent, setEmailSent] = useState(false); // State to track if email has been sent
-
+  const [emailSent, setEmailSent] = useState(false);
   const [phoneCode, setPhoneCode] = useState(['', '', '', '', '', '', '']);
   const phoneInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [manualVerificationInfo, setManualVerificationInfo] = useState({
@@ -52,8 +57,54 @@ export default function VerificationPage() {
     if (isInitialMount.current) {
       fetchUserData();
       isInitialMount.current = false;
+      return; // Don't proceed with other checks during initial mount
     }
-  }, []);
+
+    // Skip redirects if we're still loading
+    if (isInitialLoading) {
+      return;
+    }
+
+    // Only redirect to login if we're not in the middle of loading and user is null
+    if (!user && !isLoading) {
+      router.push('/login');
+      return;
+    }
+
+    // Skip the rest if user is null
+    if (!user) {
+      return;
+    }
+    if (user.isDisabled) {
+      router.push('/disabled');
+      return; // Prevent further execution
+    }
+    if (user.isActive) {
+      router.push('/dashboard');
+      return;
+    }
+    
+    if (user.needsManualApproval) {
+      router.push('/manual-approval');
+      return;
+    }
+
+    // Only set step if user exists and we're not redirecting
+    if (!user.emailVerified) {
+      setCurrentStep(0);
+    } else if (!user.phoneNumber) {
+      setCurrentStep(1);
+    } else if (!user.phoneVerified) {
+      setCurrentStep(2);
+    } else if (!user.agencyEmailVerified) {
+      setCurrentStep(3);
+    } else if (user.needsManualApproval) {
+      setCurrentStep(5);
+    } else {
+      setCurrentStep(6);
+    }
+  }, [user, isInitialLoading, isLoading]);
+
 
   useEffect(() => {
     if (timeRemaining > 0) {
@@ -75,49 +126,37 @@ export default function VerificationPage() {
       setEmailSent(true); // Set emailSent to true when email is sent
       setSuccessMessage('Verification email has been sent. Please check your email.'); // Set success message
       setTimeRemaining(60); // Start the timer
-    } catch (err) {
+    } catch (err) { console.log(err)
+      console.log(err)
       setError('Failed to send verification email. Please try again.');
     }
   };
 
   const fetchUserData = async () => {
+    setIsInitialLoading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
         credentials: 'include'
       });
+      
       if (!response.ok) {
         router.push('/login');
         return;
       }
+      
       const userData: User = await response.json();
       setUser(userData);
-      if (userData.isActive) {
-        router.push('/dashboard');
-      } else if (userData.needsManualApproval) {
-        router.push('/manual-approval');
-      } else {
-        determineStartingStep(userData);
-      }
-    } catch (err) {
+      
+    } catch (err) { console.log(err)
       setError('Failed to fetch user data. Please try again.');
+      router.push('/login');
+    } finally {
+      setIsInitialLoading(false);
     }
   };
 
-  useEffect(() => {
-    phoneInputRefs.current = phoneInputRefs.current.slice(0, 7);
-  }, []);
-
-  const determineStartingStep = (userData: User) => {
-    if (!userData.emailVerified) {
-      setCurrentStep(0);
-    } else if (!userData.phoneNumber) {
-      setCurrentStep(1);
-    } else if (!userData.phoneVerified) {
-      setCurrentStep(2);
-    } else {
-      setCurrentStep(3);
-    }
-  };
+  
+  // Remove determineStartingStep function
 
   const renderProgressBar = () => {
     return (
@@ -151,7 +190,7 @@ export default function VerificationPage() {
       } else {
         setError('An error occurred. Please try again.');
       }
-    } catch (err) {
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -177,7 +216,7 @@ export default function VerificationPage() {
       } else {
         setError('Failed to set phone number. Please try again.');
       }
-    } catch (err) {
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -216,7 +255,7 @@ export default function VerificationPage() {
       } else {
         setError('Invalid code. Please try again.');
       }
-    } catch (err) {
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -236,7 +275,7 @@ export default function VerificationPage() {
       } else {
         setError('Failed to resend verification code. Please try again.');
       }
-    } catch (err) {
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -244,6 +283,7 @@ export default function VerificationPage() {
   };
   const handleAgencyEmailSubmit = async () => {
     setIsLoading(true);
+    setError('');
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/setAgencyEmail`, {
         method: 'POST',
@@ -251,15 +291,41 @@ export default function VerificationPage() {
         body: JSON.stringify({ email: agencyEmail }),
         credentials: 'include'
       });
-      const data = await response.json();
-      if (data.emailValid === false) {
-        setCurrentStep(4);
-      } else if (data.emailValid === true) {
-        setCurrentStep(5);
-      } else {
-        setError('An error occurred. Please try again.');
+      
+      if (response.status === 409) {
+        setError('This agency email is already registered. Please use a different email or contact support.');
+        return;
       }
-    } catch (err) {
+      
+      if (response.ok) {
+        setUser(prev => prev ? { ...prev, agencyEmail: agencyEmail } : prev);
+        sendAgencyVerificationCode(); // Call directly instead of showing another button
+      } else {
+        setError('Failed to register agency email. Please try again.');
+      }
+    } catch (err) { console.log(err)
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const sendAgencyVerificationCode = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/createAgencyEmailVerificationCode`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        setEmailSent(true);
+        setSuccessMessage('Verification code has been sent to your agency email.');
+        setTimeRemaining(60);
+        setCurrentStep(4);
+      } else {
+        setError('Failed to send verification code. Please try again.');
+      }
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -270,35 +336,33 @@ export default function VerificationPage() {
     setIsLoading(true);
     try {
       const formData = new FormData();
-      if (manualVerificationInfo.cardPhoto) {
-        formData.append('cardPhoto', manualVerificationInfo.cardPhoto);
-      }
-      if (manualVerificationInfo.workIdPhoto) {
-        formData.append('workIdPhoto', manualVerificationInfo.workIdPhoto);
-      }
-      formData.append('name', manualVerificationInfo.name);
-      formData.append('reason', manualVerificationInfo.reason);
-
+      Object.entries(manualVerificationInfo).forEach(([key, value]) => {
+        if (value) formData.append(key, value);
+      });
+  
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verifyInformation`, {
         method: 'POST',
         body: formData,
         credentials: 'include'
       });
+      
       if (response.ok) {
-        setError('Your information has been submitted and will be reviewed. You will receive an email with an update soon.');
+        setSuccessMessage('Your information has been submitted and will be reviewed. You will receive an email with an update soon.');
+        router.push('/manual-approval');
       } else {
         setError('An error occurred. Please try again.');
       }
-    } catch (err) {
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   const handleAgencyCodeVerification = async () => {
     if (agencyCode.length !== 7) return;
     setIsLoading(true);
+    setError('');
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/verifyAgencyCode`, {
         method: 'POST',
@@ -306,18 +370,61 @@ export default function VerificationPage() {
         body: JSON.stringify({ code: agencyCode }),
         credentials: 'include'
       });
-      if (response.ok) {
-        router.push('/dashboard');
-      } else {
-        setError('Invalid code. Please try again.');
+  
+      if (response.status === 400) {
+        setError('Invalid verification code. Please try again.');
+        return;
       }
-    } catch (err) {
+  
+      if (response.ok) {
+        // Single request to get updated user data
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          credentials: 'include'
+        });
+        
+        if (userResponse.ok) {
+          const userData: User = await userResponse.json();
+          setUser(userData);
+          
+          if (!userData.agencyEmailVerified) {
+            setError('Agency email verification failed. Please try again.');
+            return;
+          }
+  
+          // No need for another request, use the userData we already have
+          if (userData.needsManualApproval) {
+            setCurrentStep(5);
+          }
+        }
+      }
+    } catch (err) { console.log(err)
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
+  const handleDashboardRedirect = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/setActive`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        // Update user state before redirect
+        const updatedUser = { ...user!, isActive: true };
+        setUser(updatedUser);
+        router.push('/dashboard');
+      } else {
+        setError('Failed to activate account. Please try again.');
+      }
+    } catch (err) { console.log(err)
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const renderStep = () => {
     switch (currentStep) {
       case 0:
@@ -419,27 +526,59 @@ export default function VerificationPage() {
             </Button>
           </>
         );
-      case 3:
+        case 3:
+          return (
+            <>
+              <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Email Verification</CardTitle>
+              {user?.agencyEmail ? (
+                <>
+                  <div className="text-center mb-6">
+                    <p className="text-gray-300 mb-2">Your agency email:</p>
+                    <p className="text-lg font-semibold text-white mb-4">{user.agencyEmail}</p>
+                    <p className="text-gray-300 mb-4">
+                      Click below to receive a verification code at your agency email address. 
+                      Please check your inbox (and spam folder) for the verification email.
+                    </p>
+                    <Button
+                      onClick={sendAgencyVerificationCode}
+                      disabled={isLoading}
+                      className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded"
+                    >
+                      Send Verification Email
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-300 mb-4">Please enter your official agency email address.</p>
+                  <Input
+                    type="email"
+                    placeholder="Agency Email"
+                    value={agencyEmail}
+                    onChange={(e) => setAgencyEmail(e.target.value)}
+                    className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
+                  />
+                  <Button 
+                    onClick={handleAgencyEmailSubmit} 
+                    disabled={isLoading} 
+                    className="w-full bg-blue-700 hover:bg-blue-800"
+                  >
+                    Submit Agency Email
+                  </Button>
+                </>
+              )}
+              {successMessage && (
+                <Alert className="mt-4 bg-green-900 border-green-800 text-green-300">
+                  <AlertDescription>{successMessage}</AlertDescription>
+                </Alert>
+              )}
+            </>
+          );
+      case 5:
         return (
           <>
-            <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Verification</CardTitle>
-            <p className="text-gray-300 mb-4">Please enter your official agency email address. This is needed to prevent fraud and access sensitive information.</p>
-            <Input
-              type="email"
-              placeholder="Agency Email"
-              value={agencyEmail}
-              onChange={(e) => setAgencyEmail(e.target.value)}
-              className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
-            />
-            <Button onClick={handleAgencyEmailSubmit} disabled={isLoading} className="w-full">
-              Submit Agency Email
-            </Button>
-          </>
-        );
-      case 4:
-        return (
-          <>
-            <CardTitle className="text-xl font-bold text-center text-white mb-4">Manual Verification</CardTitle>
+            <CardTitle className="text-xl font-bold text-center text-white mb-4">Manual Verification Required</CardTitle>
+            <p className="text-gray-300 mb-4">Your account requires manual verification. Please submit the following information for review:</p>
             <Input
               type="file"
               accept="image/*"
@@ -477,11 +616,11 @@ export default function VerificationPage() {
             </Button>
           </>
         );
-      case 5:
-        return (
+      case 4:
+        return  (
           <>
-            <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Email Verification</CardTitle>
-            <p className="text-gray-300 mb-4">Please check your agency email and enter the 7-digit code sent to you.</p>
+            <CardTitle className="text-xl font-bold text-center text-white mb-4">Verify Agency Email</CardTitle>
+            <p className="text-gray-300 mb-4">Please enter the 7-digit verification code sent to your agency email.</p>
             <Input
               type="text"
               placeholder="Enter 7-digit code"
@@ -490,39 +629,65 @@ export default function VerificationPage() {
               onKeyUp={() => agencyCode.length === 7 && handleAgencyCodeVerification()}
               className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
             />
+            <Button
+              onClick={() => sendAgencyVerificationCode()}
+              disabled={timeRemaining > 0}
+              className="w-full mt-2"
+            >
+              {timeRemaining > 0
+                ? `Resend code in ${timeRemaining}s`
+                : "Didn't receive the code? Resend it"}
+            </Button>
           </>
         );
-      default:
-        return null;
-    }
-  };
-
-  if (!user) return null;
-
+        case 6:
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md bg-gray-800 border-gray-700">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center">
-            <Shield className="h-12 w-12 text-blue-400" />
-          </div>
-          <CardTitle className="text-2xl font-bold text-center text-white">NYC Incident Dashboard</CardTitle>
-          {renderProgressBar()}
-        </CardHeader>
-        <CardContent>
-          {renderStep()}
-          {error && (
-            <Alert variant="destructive" className="mt-4 bg-red-900 border-red-800 text-red-300">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+    <div className="text-center">
+      <div className="flex justify-center mb-6">
+        <CheckCircle className="h-16 w-16 text-green-500" />
+      </div>
+      <CardTitle className="text-xl font-bold text-white mb-4">Verification Complete</CardTitle>
+      <p className="text-gray-300 mb-6">
+        Thank you for completing the verification process. Your account has been successfully verified for access to the NYC Incident Dashboard.
+      </p>
+      <Button 
+        onClick={handleDashboardRedirect}
+        disabled={isLoading}
+        className="w-full bg-blue-600 hover:bg-blue-700"
+      >
+        {isLoading ? 'Activating Account...' : 'Continue to Dashboard'}
+      </Button>
+    </div>
+  );
+default:
+  return null;
+    }
+ 
+}
+if (isInitialLoading) {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gray-900">
+      <Card className="w-full max-w-md bg-gray-800 text-white">
+        <CardContent className="p-6">
+          <div className="text-center">Loading...</div>
         </CardContent>
-        <CardFooter>
-          <p className="text-center text-sm text-gray-400 mt-2 w-full">
-            This is a secure verification process for official access to the NYC Incident Dashboard.
-          </p>
-        </CardFooter>
       </Card>
     </div>
   );
+}
+return (
+  <div className="flex items-center justify-center min-h-screen bg-gray-900">
+    <Card className="w-full max-w-md bg-gray-800 text-white">
+      <CardContent className="p-6">
+        {renderProgressBar()}
+        {error && (
+          <Alert className="mb-4 bg-red-900 border-red-800 text-red-300">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {renderStep()}
+      </CardContent>
+    </Card>
+  </div>
+);
 }

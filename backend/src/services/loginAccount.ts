@@ -26,8 +26,13 @@ export const loginUser = async ({ body, set, cookie, error}: any ) => {
      }
      // now the user should be able to be authenticated
  
-     const token = await signToken({id: user.id, email: user.email,  isAdmin: user.isAdmin})
- 
+     const token = await signToken({id: user.id, 
+        email: user.email, 
+        isActive: user.isActive,
+        isAdmin: user.isAdmin,
+        isDisabled: user.isDisabled,
+    })
+        
      set.headers['Authorization'] = `Bearer ${token}`;
  
      const cookieOptions: any = {

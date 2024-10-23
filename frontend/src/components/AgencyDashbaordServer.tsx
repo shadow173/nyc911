@@ -7,7 +7,6 @@ interface Agency {
   emailDomain: string;
   requiresManualApproval: boolean;
 }
-
 async function getAgencies(token: string) {
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agencies`, {
     headers: {
@@ -47,13 +46,15 @@ export default async function AgencyDashboardServer() {
       redirect('/'); // Redirect non-admin users to home
     }
 
-    const { agenciesList } = await getAgencies(token);
-    
+    const agenciesList: Agency[] = await getAgencies(token);
+    console.log('Agencies List from Dashboard:', agenciesList); // Test console log with Agency interface
+
     return {
       agenciesList,
       token
     };
   } catch (error) {
+    console.log(error)
     redirect('/login');
   }
 }

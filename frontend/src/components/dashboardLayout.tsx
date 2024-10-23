@@ -1,4 +1,3 @@
-import { PropsWithChildren } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -26,7 +25,6 @@ const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
     return null; // Prevent further execution
   }
 
-  try {
     // Fetch user authentication status
     const authResponse = await fetch(`${api}/auth/me`, {
       method: 'GET',
@@ -46,6 +44,10 @@ const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
     // Parse the JSON response to access user data
     const userData = await authResponse.json();
     console.log("User data fetched:", userData);
+    if (userData.isDisabled) {
+      redirect('/disabled');
+      return null; // Prevent further execution
+    }
     // Check if the user is active
     if (!userData.isActive) {
       console.log("User is not active, redirecting to login...");
@@ -63,12 +65,9 @@ const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
       </div>
     );
 
-  } catch (error) {
-    console.error("An error occurred while fetching user data:", error);
+  
     // Optionally, redirect to login or show an error page
-    redirect('/login');
-    return null; // Prevent further execution
-  }
+    
 };
 
 export default DashboardLayout;
