@@ -822,13 +822,13 @@ export const submitVerificationForm = async ({
     logger.info("File type:", file.type);
 
     // Get other form fields
-    const role = formData.get("role");
-    const name = formData.get("name");
-    const companyName = formData.get("companyName");
-    const streetAddress = formData.get("streetAddress");
-    const city = formData.get("city");
-    const state = formData.get("state");
-    const zipCode = formData.get("zipCode");
+    const role = formData.get("role") as string;
+    const name = formData.get("name") as string;
+    const companyName = formData.get("companyName") as string;
+    const streetAddress = formData.get("streetAddress") as string;
+    const city = formData.get("city") as string;
+    const state = formData.get("state") as string;
+    const zipCode = formData.get("zipCode") as string;
 
     // Validate required fields
     if (
@@ -868,6 +868,10 @@ export const submitVerificationForm = async ({
     // Create user data
 
     // add a check to ensure they didnt already make one
+    const check = await db.select().from(verificationData).where(eq(verificationData.userId, user.id)).limit(1)
+    if(check.length > 0){
+        return error(429, "Verification Data already exists.")
+    }
     if (
       !role ||
       !companyName ||
@@ -879,8 +883,8 @@ export const submitVerificationForm = async ({
     ) {
       return;
     }
-    const uploadedVerification = await db.insert(verificationData).values({
-      userId: 23,
+    await db.insert(verificationData).values({
+      userId: user.id,
       role: role,
       companyName: companyName,
       streetAddress: streetAddress,
@@ -890,20 +894,15 @@ export const submitVerificationForm = async ({
       documentId: fileId,
       documentURL: `s3://${process.env.AWS_BUCKET_NAME}/${s3Key}`,
       status: "pending",
+    
     });
-    console.log("ROLE " + role);
     return {
       success: true,
       message: "Verification submission successful",
       documentId: fileId,
     };
-  } catch (error) {
-    logger.error("Verification submission error:", error);
-    set.status = 500;
-    return {
-      success: false,
-      message: "Failed to process verification submission",
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
+  } catch (e) {
+    logger.error("Verification submission error:", e);
+    return error(500, "Failed to process verification submission")
   }
 };
