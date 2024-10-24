@@ -1,59 +1,71 @@
-import fetch from 'node-fetch'
+import axios from 'axios'
 import FormData from 'form-data'
+import fs from 'fs'
 
-async function testVerificationSubmission() {
+async function testVerificationUpload() {
+    // Create a test file with proper typing
+    const testFileName = 'verification-document.pdf'
+    const testFileContent = new Uint8Array(Buffer.from('Sample verification document content'))
+    fs.writeFileSync(testFileName, testFileContent)
+
     try {
-        // Create a form data instance
-        const formData = new FormData()
-        
-        // Add the file as a buffer
-        const fileBuffer = Buffer.from('Sample verification document content')
-        formData.append('file', fileBuffer, {
-            filename: 'verification-document.pdf',
+        // Read the test file
+        const fileStream = fs.createReadStream(testFileName)
+
+        // Create form data
+        const form = new FormData()
+        form.append('file', fileStream, {
+            filename: testFileName,
             contentType: 'application/pdf'
         })
         
-        // Add all other fields
-        formData.append('role', 'dispatcher')
-        formData.append('name', 'Test Dispatcher')
-        formData.append('companyName', 'NYC Emergency Services')
-        formData.append('streetAddress', '11 MetroTech Center')
-        formData.append('city', 'Brooklyn')
-        formData.append('state', 'NY')
-        formData.append('zipCode', '11201')
+        // Add all other required fields
+        form.append('role', 'dispatcher')
+        form.append('name', 'Test Dispatcher')
+        form.append('companyName', 'NYC Emergency Services')
+        form.append('streetAddress', '11 MetroTech Center')
+        form.append('city', 'Brooklyn')
+        form.append('state', 'NY')
+        form.append('zipCode', '11201')
 
-        // Make the request
-        const response = await fetch('http://localhost:3001/auth/submitVerificationForm', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                ...formData.getHeaders()
+        // Send the request
+        const response = await axios.post(
+            'http://localhost:3001/auth/submitVerificationForm',
+            form,
+            {
+                headers: {
+                    ...form.getHeaders(),
+                },
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
             }
-        })
+        )
 
-        console.log('Response status:', response.status)
-        
-        // Get the raw response text first
-        const responseText = await response.text()
-        console.log('Raw response:', responseText)
-        
-        // Try to parse as JSON if possible
-        try {
-            const result = JSON.parse(responseText)
-            console.log('Parsed response:', result)
-        } catch (error) {
-            console.log('Could not parse response as JSON')
-        }
+        console.log('Upload result:', response.data)
 
     } catch (error) {
-        console.error('Test failed:', error)
-        if (error instanceof Error) {
-            console.error('Error message:', error.message)
-            console.error('Error stack:', error.stack)
+        if (axios.isAxiosError(error)) {
+            console.error('Upload failed:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message
+            })
+        } else {
+            console.error('Error during upload:', error)
+        }
+    } finally {
+        // Clean up the test file
+        try {
+            fs.unlinkSync(testFileName)
+            console.log('Test file cleaned up')
+        } catch (error) {
+            console.error('Error cleaning up test file:', error)
         }
     }
 }
 
 // Run the test
-console.log('Starting verification submission test...')
-testVerificationSubmission()
+console.log('Starting verification upload test...')
+testVerificationUpload().catch(console.error)
+
+export { testVerificationUpload }

@@ -59,9 +59,19 @@ export const authRoutes = new Elysia({ prefix: '/auth'})
 
 .get('/createAgencyEmailVerificationCode', createAgencyEmailVerificationCode)
 .get('/setActive', setActive)
-.post('/submitVerificationForm',  async ({ body, set }) => {
-    return submitVerificationForm({ body, set })
-}
+.post('/submitVerificationForm', submitVerificationForm,
+    // {
+    //     body: t.Object({
+    //         file: t.Any(),
+    //         role: t.String(),
+    //         name: t.String(),
+    //         companyName: t.String(),
+    //         streetAddress: t.String(),
+    //         city: t.String(),
+    //         state: t.String(),
+    //         zipCode: t.String()
+    //     })
+    // }
 )
 // create endpoint that says agency email passed and make that true 
 // this way it can check if email verified or email passed and return the form 
