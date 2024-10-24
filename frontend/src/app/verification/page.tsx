@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Flag  } from 'lucide-react';
 
 interface User {
   id: number;
@@ -22,10 +22,11 @@ interface User {
   isDisabled: boolean;
 }
  // IMPORTANT MAKE SURE IT MOVES TO NEXT STEP ON EMAIL VERIFICATION PERHAPS ADD A BUTTON
- // email and phone dont progress to the next page on click , none of them do
- // createAgencyemailverificationcode gets sent automatically for some reason???
-// very buggy need to address this
-// if i reload it goes to manual approval without verifying my agency email first thats weird
+ // once you complete any step the user does not progress to the next step, this should be automatic once a good response is recieved that the next step is set  , none of them do
+ // createAgencyemailverificationcode gets sent automatically for some reason, this should only be called when a user clicks a button on the agency verification section
+// if i reload when I am at the agency email verification sectiion it goes to manual approval without verifying my agency email first 
+// for phone number entry section ensure that it displays +1 and a USA flag to the left of the input to tell the user not to include the country code
+
 const STEPS = 5;
 
 export default function VerificationPage() {
@@ -50,54 +51,73 @@ export default function VerificationPage() {
     name: '',
     reason: ''
   });
-
+  interface VerificationInfo {
+    role: string;
+    cardPhoto: File | null;  // Changed from just null to File | null
+    fullName: string;
+    organization: string;
+    streetAddress: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  }
+  const [verificationInfo, setVerificationInfo] = useState<VerificationInfo>({
+    role: '',
+    cardPhoto: null,
+    fullName: '',
+    organization: '',
+    streetAddress: '',
+    city: '',
+    state: '',
+    zipCode: '',
+  });
   const isInitialMount = useRef(true);
-
+  const states = [
+    "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware",
+    "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky",
+    "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi",
+    "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico",
+    "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania",
+    "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont",
+    "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"
+  ];
   useEffect(() => {
     if (isInitialMount.current) {
       fetchUserData();
       isInitialMount.current = false;
-      return; // Don't proceed with other checks during initial mount
-    }
-
-    // Skip redirects if we're still loading
-    if (isInitialLoading) {
       return;
     }
-
-    // Only redirect to login if we're not in the middle of loading and user is null
+  
+    if (isInitialLoading) return;
+  
     if (!user && !isLoading) {
       router.push('/login');
       return;
     }
-
-    // Skip the rest if user is null
-    if (!user) {
-      return;
-    }
+  
+    if (!user) return;
+  
     if (user.isDisabled) {
       router.push('/disabled');
-      return; // Prevent further execution
+      return;
     }
+  
     if (user.isActive) {
       router.push('/dashboard');
       return;
     }
-    
-    if (user.needsManualApproval) {
-      router.push('/manual-approval');
-      return;
-    }
 
-    // Only set step if user exists and we're not redirecting
+    // Modified step progression logic
     if (!user.emailVerified) {
       setCurrentStep(0);
     } else if (!user.phoneNumber) {
       setCurrentStep(1);
     } else if (!user.phoneVerified) {
       setCurrentStep(2);
-    } else if (!user.agencyEmailVerified) {
+    } else if (!user.agencyEmail) {
       setCurrentStep(3);
+    } else if (!user.agencyEmailVerified) {
+      setCurrentStep(4);
     } else if (user.needsManualApproval) {
       setCurrentStep(5);
     } else {
@@ -132,6 +152,13 @@ export default function VerificationPage() {
     }
   };
 
+  const checkAndHandleDisabledUser = (userData: User) => {
+    if (userData.isDisabled) {
+      router.push('/disabled');
+      return true;
+    }
+    return false;
+  };
   const fetchUserData = async () => {
     setIsInitialLoading(true);
     try {
@@ -145,9 +172,11 @@ export default function VerificationPage() {
       }
       
       const userData: User = await response.json();
+      if (checkAndHandleDisabledUser(userData)) return;
       setUser(userData);
       
-    } catch (err) { console.log(err)
+    } catch (err) {
+      console.log(err);
       setError('Failed to fetch user data. Please try again.');
       router.push('/login');
     } finally {
@@ -184,25 +213,40 @@ export default function VerificationPage() {
         credentials: 'include'
       });
       if (response.ok) {
-        setCurrentStep(1);
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          credentials: 'include'
+        });
+        if (userResponse.ok) {
+          const updatedUser = await userResponse.json();
+          if (checkAndHandleDisabledUser(updatedUser)) return;
+          setUser(updatedUser);
+          if (updatedUser.emailVerified) {
+            setCurrentStep(1);
+          }
+        }
       } else if (response.status === 400) {
         setError('Invalid code. Please try again.');
       } else {
         setError('An error occurred. Please try again.');
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
+  const handleManualSubmit = async (e:React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+    // Add your submission logic here
+    setIsLoading(false);
+  };
   const handleResendEmail = async () => {
     if (!user || timeRemaining > 0) return;
     await sendVerificationEmail();
   };
-
   const handlePhoneNumberSubmit = async () => {
+    if (phoneNumber.length !== 10) return;
     setIsLoading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/setPhoneNumber`, {
@@ -212,11 +256,28 @@ export default function VerificationPage() {
         credentials: 'include'
       });
       if (response.ok) {
-        setCurrentStep(2);
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          credentials: 'include'
+        });
+        if (userResponse.ok) {
+          const updatedUser = await userResponse.json();
+          if (checkAndHandleDisabledUser(updatedUser)) return;
+          setUser(updatedUser);
+          if (updatedUser.phoneNumber) {
+            setCurrentStep(2);
+          } else {
+            setError('Failed to set phone number. Please try again.');
+          }
+        }
+      } else if (response.status === 409) {
+        setError('This phone number is already in use');
+      } else if (response.status === 400) {
+        setError('This phone number is invalid. Please use a mobile number');
       } else {
         setError('Failed to set phone number. Please try again.');
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
+      console.log(err);
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -251,16 +312,27 @@ export default function VerificationPage() {
         credentials: 'include'
       });
       if (response.ok) {
-        setCurrentStep(3);
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          credentials: 'include'
+        });
+        if (userResponse.ok) {
+          const updatedUser = await userResponse.json();
+          if (checkAndHandleDisabledUser(updatedUser)) return;
+          setUser(updatedUser);
+          if (updatedUser.phoneVerified) {
+            setCurrentStep(3);
+          }
+        }
       } else {
         setError('Invalid code. Please try again.');
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleResendPhoneCode = async () => {
     if (timeRemaining > 0) return;
     setIsLoading(true);
@@ -298,12 +370,19 @@ export default function VerificationPage() {
       }
       
       if (response.ok) {
-        setUser(prev => prev ? { ...prev, agencyEmail: agencyEmail } : prev);
-        sendAgencyVerificationCode(); // Call directly instead of showing another button
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          credentials: 'include'
+        });
+        if (userResponse.ok) {
+          const updatedUser = await userResponse.json();
+          if (checkAndHandleDisabledUser(updatedUser)) return;
+          setUser(updatedUser);
+          setSuccessMessage('Agency email registered successfully. Click "Verify Email" below to proceed.');
+        }
       } else {
         setError('Failed to register agency email. Please try again.');
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -325,13 +404,13 @@ export default function VerificationPage() {
       } else {
         setError('Failed to send verification code. Please try again.');
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
+      console.log(err);
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleManualVerificationSubmit = async () => {
     setIsLoading(true);
     try {
@@ -358,7 +437,6 @@ export default function VerificationPage() {
       setIsLoading(false);
     }
   };
-  
   const handleAgencyCodeVerification = async () => {
     if (agencyCode.length !== 7) return;
     setIsLoading(true);
@@ -377,27 +455,27 @@ export default function VerificationPage() {
       }
   
       if (response.ok) {
-        // Single request to get updated user data
         const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
           credentials: 'include'
         });
         
         if (userResponse.ok) {
-          const userData: User = await userResponse.json();
-          setUser(userData);
+          const updatedUser = await userResponse.json();
+          if (checkAndHandleDisabledUser(updatedUser)) return;
+          setUser(updatedUser);
           
-          if (!userData.agencyEmailVerified) {
+          if (updatedUser.agencyEmailVerified) {
+            if (updatedUser.needsManualApproval) {
+              setCurrentStep(5);
+            } else {
+              setCurrentStep(6);
+            }
+          } else {
             setError('Agency email verification failed. Please try again.');
-            return;
-          }
-  
-          // No need for another request, use the userData we already have
-          if (userData.needsManualApproval) {
-            setCurrentStep(5);
           }
         }
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -412,14 +490,21 @@ export default function VerificationPage() {
       });
       
       if (response.ok) {
-        // Update user state before redirect
-        const updatedUser = { ...user!, isActive: true };
-        setUser(updatedUser);
-        router.push('/dashboard');
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+          credentials: 'include'
+        });
+        
+        if (userResponse.ok) {
+          const updatedUser = await userResponse.json();
+          if (checkAndHandleDisabledUser(updatedUser)) return;
+          setUser({ ...updatedUser, isActive: true });
+          router.push('/dashboard');
+        }
       } else {
         setError('Failed to activate account. Please try again.');
       }
-    } catch (err) { console.log(err)
+    } catch (err) {
+      console.log(err);
       setError('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -473,16 +558,44 @@ export default function VerificationPage() {
           <>
             <CardTitle className="text-xl font-bold text-center text-white mb-4">Phone Number Entry</CardTitle>
             <p className="text-gray-300 mb-4">Please enter your phone number. We need your phone to prevent fraud and abuse.</p>
-            <Input
-              type="tel"
-              placeholder="Phone Number"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
-            />
-            <p className="text-sm text-gray-400 mb-4">By entering your phone number, you agree to receive a one-time text message to verify your number.</p>
-            <Button onClick={handlePhoneNumberSubmit} disabled={isLoading} className="w-full">
-              Submit Phone Number
+            
+            <div className="relative flex items-center mb-4">
+              {/* Country code indicator */}
+              <div className="absolute left-0 flex items-center pl-3 pointer-events-none">
+                <Flag className="h-4 w-4 text-gray-400 mr-1" />
+                <span className="text-gray-400">+1</span>
+              </div>
+              
+              {/* Modified phone input */}
+              <Input
+                type="tel"
+                placeholder="(555) 555-5555"
+                value={phoneNumber}
+                onChange={(e) => {
+                  // Remove any non-numeric characters
+                  const cleaned = e.target.value.replace(/\D/g, '');
+                  // Format the phone number
+                  let formatted = cleaned;
+                  if (cleaned.length >= 3) {
+                    formatted = `(${cleaned.slice(0, 3)})${cleaned.length > 3 ? ' ' + cleaned.slice(3, 6) : ''}${cleaned.length > 6 ? '-' + cleaned.slice(6, 10) : ''}`;
+                  }
+                  setPhoneNumber(cleaned);
+                }}
+                className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 pl-16"
+                maxLength={14}
+              />
+            </div>
+            
+            <p className="text-sm text-gray-400 mb-4">
+              Enter your 10-digit US phone number without the country code (+1).
+            </p>
+            
+            <Button 
+              onClick={handlePhoneNumberSubmit} 
+              disabled={isLoading || phoneNumber.length !== 10} 
+              className="w-full"
+            >
+              {isLoading ? 'Submitting...' : 'Submit Phone Number'}
             </Button>
           </>
         );
@@ -518,7 +631,7 @@ export default function VerificationPage() {
               onClick={handleResendPhoneCode}
               disabled={timeRemaining > 0 || isLoading}
               variant="outline"
-              className="w-full"
+              className="w-full text-gray-700"
             >
               {timeRemaining > 0
                 ? `Resend code in ${timeRemaining}s`
@@ -529,97 +642,203 @@ export default function VerificationPage() {
         case 3:
           return (
             <>
-              <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Email Verification</CardTitle>
-              {user?.agencyEmail ? (
-                <>
-                  <div className="text-center mb-6">
-                    <p className="text-gray-300 mb-2">Your agency email:</p>
-                    <p className="text-lg font-semibold text-white mb-4">{user.agencyEmail}</p>
-                    <p className="text-gray-300 mb-4">
-                      Click below to receive a verification code at your agency email address. 
-                      Please check your inbox (and spam folder) for the verification email.
-                    </p>
-                    <Button
-                      onClick={sendAgencyVerificationCode}
-                      disabled={isLoading}
-                      className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded"
-                    >
-                      Send Verification Email
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-gray-300 mb-4">Please enter your official agency email address.</p>
-                  <Input
-                    type="email"
-                    placeholder="Agency Email"
-                    value={agencyEmail}
-                    onChange={(e) => setAgencyEmail(e.target.value)}
-                    className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
-                  />
-                  <Button 
-                    onClick={handleAgencyEmailSubmit} 
-                    disabled={isLoading} 
-                    className="w-full bg-blue-700 hover:bg-blue-800"
+            <CardTitle className="text-xl font-bold text-center text-white mb-4">Agency Email Verification</CardTitle>
+            {user?.agencyEmail ? (
+              <>
+                <div className="text-center mb-6">
+                  <p className="text-gray-300 mb-2">Your agency email:</p>
+                  <p className="text-lg font-semibold text-white mb-4">{user.agencyEmail}</p>
+                  <p className="text-gray-300 mb-4">
+                    Click below to verify this email address.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setCurrentStep(4);
+                      sendAgencyVerificationCode();
+                    }}
+                    disabled={isLoading}
+                    className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded"
                   >
-                    Submit Agency Email
+                    {isLoading ? 'Processing...' : 'Verify Email'}
                   </Button>
-                </>
-              )}
-              {successMessage && (
-                <Alert className="mt-4 bg-green-900 border-green-800 text-green-300">
-                  <AlertDescription>{successMessage}</AlertDescription>
-                </Alert>
-              )}
-            </>
-          );
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-300 mb-4">Please enter your official agency email address.</p>
+                <Input
+                  type="email"
+                  placeholder="Agency Email"
+                  value={agencyEmail}
+                  onChange={(e) => setAgencyEmail(e.target.value)}
+                  className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
+                />
+                <Button 
+                  onClick={handleAgencyEmailSubmit} 
+                  disabled={isLoading || !agencyEmail} 
+                  className="w-full bg-blue-700 hover:bg-blue-800"
+                >
+                  {isLoading ? 'Submitting...' : 'Submit Agency Email'}
+                </Button>
+              </>
+            )}
+            {successMessage && (
+              <Alert className="mt-4 bg-green-900 border-green-800 text-green-300">
+                <AlertDescription>{successMessage}</AlertDescription>
+              </Alert>
+            )}
+          </>)
+
       case 5:
         return (
           <>
-            <CardTitle className="text-xl font-bold text-center text-white mb-4">Manual Verification Required</CardTitle>
-            <p className="text-gray-300 mb-4">Your account requires manual verification. Please submit the following information for review:</p>
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setManualVerificationInfo(prev => ({ ...prev, cardPhoto: file }));
-              }}
-              className="w-full bg-gray-700 border-gray-600 text-white mb-4"
-            />
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setManualVerificationInfo(prev => ({ ...prev, workIdPhoto: file }));
-              }}
-              className="w-full bg-gray-700 border-gray-600 text-white mb-4"
-            />
+             
+      
+      <div className="bg-blue-900 p-4 rounded-md mb-6">
+        <p className="text-white text-sm">
+          This verification process is required to access sensitive emergency response information. 
+          We take security seriously to protect both emergency personnel and the public. 
+        </p>
+        <p className="text-white text-sm mt-2">
+          Your data is extremely important to us. All information will be immediately deleted upon verification.
+        </p>
+      </div>
+
+      <form onSubmit={handleManualSubmit} className="space-y-4">
+        <div>
+          <label className="block text-white mb-2">What is your role?*</label>
+          <select 
+            className="w-full bg-gray-700 border-gray-600 text-white rounded-md p-2"
+            value={verificationInfo.role}
+            onChange={(e) => setVerificationInfo(prev => ({ ...prev, role: e.target.value }))}
+            required
+          >
+            <option value="">Select Role</option>
+            <option value="firefighter">Firefighter</option>
+            <option value="police">Police Officer</option>
+            <option value="emt">EMT</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        {verificationInfo.role === 'other' && (
+          <div>
+            <label className="block text-white mb-2">Please specify your role:*</label>
             <Input
               type="text"
-              placeholder="Full Name"
-              value={manualVerificationInfo.name}
-              onChange={(e) => setManualVerificationInfo(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
+              className="w-full bg-gray-700 border-gray-600 text-white"
+              required
             />
-            <textarea
-              placeholder="Why do you want access?"
-              value={manualVerificationInfo.reason}
-              onChange={(e) => setManualVerificationInfo(prev => ({ ...prev, reason: e.target.value }))}
-              className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4 p-2 rounded-md"
-              rows={4}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-white mb-2">Upload Agency or State Credentials*</label>
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setVerificationInfo(prev => ({ ...prev, cardPhoto: file }));
+            }}
+            className="w-full bg-gray-700 border-gray-600 text-white"
+            required
+          />
+          <p className="text-gray-400 text-sm mt-1">Please upload a clear photo of your official credentials</p>
+        </div>
+
+        <div>
+          <label className="block text-white mb-2">Full Name*</label>
+          <Input
+            type="text"
+            value={verificationInfo.fullName}
+            onChange={(e) => setVerificationInfo(prev => ({ ...prev, fullName: e.target.value }))}
+            className="w-full bg-gray-700 border-gray-600 text-white"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-white mb-2">Company / Organization Name*</label>
+          <Input
+            type="text"
+            value={verificationInfo.organization}
+            onChange={(e) => setVerificationInfo(prev => ({ ...prev, organization: e.target.value }))}
+            className="w-full bg-gray-700 border-gray-600 text-white"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-white mb-2">Street Address*</label>
+          <Input
+            type="text"
+            value={verificationInfo.streetAddress}
+            onChange={(e) => setVerificationInfo(prev => ({ ...prev, streetAddress: e.target.value }))}
+            className="w-full bg-gray-700 border-gray-600 text-white"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-white mb-2">City*</label>
+            <Input
+              type="text"
+              value={verificationInfo.city}
+              onChange={(e) => setVerificationInfo(prev => ({ ...prev, city: e.target.value }))}
+              className="w-full bg-gray-700 border-gray-600 text-white"
+              required
             />
-            <Button onClick={handleManualVerificationSubmit} disabled={isLoading} className="w-full">
-              Submit for Review
-            </Button>
+          </div>
+
+          <div>
+            <label className="block text-white mb-2">State*</label>
+            <select
+              value={verificationInfo.state}
+              onChange={(e) => setVerificationInfo(prev => ({ ...prev, state: e.target.value }))}
+              className="w-full bg-gray-700 border-gray-600 text-white rounded-md p-2"
+              required
+            >
+              <option value="">Select State</option>
+              {states.map(state => (
+                <option key={state} value={state}>{state}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-white mb-2">Zip Code*</label>
+          <Input
+            type="text"
+            value={verificationInfo.zipCode}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+              setVerificationInfo(prev => ({ ...prev, zipCode: value }));
+            }}
+            pattern="[0-9]{5}"
+            className="w-full bg-gray-700 border-gray-600 text-white"
+            required
+          />
+        </div>
+
+        <Button type="submit" disabled={isLoading} className="w-full mt-6">
+          {isLoading ? 'Submitting...' : 'Submit for Verification'}
+        </Button>
+
+        <p className="text-gray-400 text-sm mt-4">
+          * Required fields. All information submitted will be kept confidential and used only for verification purposes.
+        </p>
+      </form>
           </>
         );
       case 4:
         return  (
           <>
             <CardTitle className="text-xl font-bold text-center text-white mb-4">Verify Agency Email</CardTitle>
+            <p className="text-gray-300 mb-2">Verifying email:</p>
+            <p className="text-lg font-semibold text-white text-center mb-4">{user?.agencyEmail}</p>
             <p className="text-gray-300 mb-4">Please enter the 7-digit verification code sent to your agency email.</p>
             <Input
               type="text"
@@ -630,8 +849,8 @@ export default function VerificationPage() {
               className="w-full bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 mb-4"
             />
             <Button
-              onClick={() => sendAgencyVerificationCode()}
-              disabled={timeRemaining > 0}
+              onClick={sendAgencyVerificationCode}
+              disabled={timeRemaining > 0 || isLoading}
               className="w-full mt-2"
             >
               {timeRemaining > 0

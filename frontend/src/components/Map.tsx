@@ -56,7 +56,23 @@ interface Incident {
     const publicMapsToken = process.env.NEXT_PUBLIC_MAPS_API_KEY!;
     console.log(publicMapsToken)
 
+    function getIconImage(incident: Incident): string {
+      const status = incident.status.toLowerCase();
+      const agencyType = incident.agencyType.toLowerCase();
+      const severity = incident.severity.toLowerCase();
     
+      if (status === 'pending') {
+        return 'staroflife-gray';
+      } else if (agencyType === 'ems' && severity === 'critical') {
+        return 'staroflife-red';
+      } else if (agencyType === 'ems') {
+        return 'staroflife';
+      } else if (agencyType === 'pd' && severity === 'critical') {
+        return 'pd-red';
+      } else {
+        return 'pd-blue';
+      }
+    }
 
     useEffect(() => {
         console.log("Map useEffect running");
@@ -4076,14 +4092,7 @@ interface Incident {
                 type: 'symbol',
                 source: 'incidents',
                 layout: {
-                  'icon-image':[
-                    'case',
-                    ['==', ['get', 'status'], 'pending'], 'staroflife-gray',
-                    ['all', ['==', ['get', 'agencyType'], 'ems'], ['==', ['get', 'severity'], 'critical']], 'staroflife-red',
-                    ['==', ['get', 'agencyType'], 'ems'], 'staroflife',
-                    ['all', ['==', ['get', 'agencyType'], 'pd'], ['==', ['get', 'severity'], 'critical']], 'pd-red',
-                    'pd-blue'
-                  ], // Use a fixed icon name
+                  'icon-image': ['get', 'iconImage'],
                   'icon-size': 0.14,
                   'icon-allow-overlap': true,
                 },
@@ -4129,8 +4138,10 @@ interface Incident {
           
             const source = mapRef.current.getSource('incidents') as GeoJSONSource;
             if (source) {
-                const features: Feature<Point, IncidentProperties>[] = incidents.map((incident) => ({
-                    type: 'Feature',
+              const features: Feature<Point, IncidentProperties>[] = 
+              
+              incidents.map((incident) => ({
+                type: 'Feature',
                 geometry: {
                   type: 'Point',
                   coordinates: [incident.longitude, incident.latitude],
@@ -4140,6 +4151,7 @@ interface Incident {
                   agencyType: incident.agencyType.toLowerCase(),
                   severity: incident.severity.toLowerCase(),
                   status: incident.status.toLowerCase(),
+                  iconImage: getIconImage(incident),
                 },
               }));
           

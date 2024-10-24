@@ -4,7 +4,7 @@ import {  registerUser } from "./controllers/registerUser";
 import { loginUser } from "./services/loginAccount";
 import { Elysia, t} from 'elysia'
 import bearer from "@elysiajs/bearer";
-import { checkAgencyEmailCode, createAgencyEmailVerificationCode, createPersonalEmailVerificationCode, resendPhoneVerification, setActive, setAgencyEmail, setPhoneNumber, verifyPersonalCode, verifyPhoneCode } from "./controllers/verification";
+import { checkAgencyEmailCode, createAgencyEmailVerificationCode, createPersonalEmailVerificationCode, resendPhoneVerification, setActive, setAgencyEmail, setPhoneNumber, submitVerificationForm, verifyPersonalCode, verifyPhoneCode } from "./controllers/verification";
 export const authRoutes = new Elysia({ prefix: '/auth'})
 .use(cors())
 .use(cors({
@@ -59,7 +59,10 @@ export const authRoutes = new Elysia({ prefix: '/auth'})
 
 .get('/createAgencyEmailVerificationCode', createAgencyEmailVerificationCode)
 .get('/setActive', setActive)
-
+.post('/submitVerificationForm',  async ({ body, set }) => {
+    return submitVerificationForm({ body, set })
+}
+)
 // create endpoint that says agency email passed and make that true 
 // this way it can check if email verified or email passed and return the form 
 

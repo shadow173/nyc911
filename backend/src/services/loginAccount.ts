@@ -25,14 +25,16 @@ export const loginUser = async ({ body, set, cookie, error}: any ) => {
          return error(401, { message: "Invalid username or password."})
      }
      // now the user should be able to be authenticated
- 
+     if(user.isDisabled){
+        return error(403, "Forbidden")
+     }
      const token = await signToken({id: user.id, 
         email: user.email, 
         isActive: user.isActive,
         isAdmin: user.isAdmin,
         isDisabled: user.isDisabled,
     })
-        
+    
      set.headers['Authorization'] = `Bearer ${token}`;
  
      const cookieOptions: any = {
@@ -44,7 +46,7 @@ export const loginUser = async ({ body, set, cookie, error}: any ) => {
      
 
      if (!isDevelopment) {
-         cookieOptions.domain = 'nyccommand.com';
+         cookieOptions.domain = 'incidents.nyc';
      } else{
         cookieOptions.domain = 'localhost';
 

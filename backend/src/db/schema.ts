@@ -43,6 +43,41 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+
+export const verificationData = pgTable("verification_data", {
+  userId: integer("user_id")
+  .notNull()
+  .references(() => users.id, { onDelete: "cascade" }),
+  role: text("role"),
+  companyName: text("company_name"),
+  streetAddress: text("street_address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  documentId: text("document_id"),
+  documentURL: text("document_url"),
+  status: varchar("status"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+})
+
+export const verificationRelations = relations(users, ({ one }) => ({
+  verificationRelations: one(verificationData),
+}));
+//  role: formData.role,
+// name: formData.name,
+// companyName: formData.companyName,
+// streetAddress: formData.streetAddress,
+// city: formData.city,
+// state: formData.state,
+// zipCode: formData.zipCode,
+// documentId: fileId,
+// documentUrl: `s3://${process.env.AWS_BUCKET_NAME}/${s3Key}`,
+// status: 'pending',
+// createdAt: new Date(),
+// updatedAt: new Date()
+
+
 export const agencies = pgTable("agencies", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
@@ -60,6 +95,7 @@ export const verificationTokens = pgTable("verification_tokens", {
   type: varchar("type").notNull(), // 'email_verification' or 'agency_email_verification'
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
 export const manualApprovals = pgTable("manual_approvals", {
   id: serial("id").primaryKey(),
   userId: integer("user_id")

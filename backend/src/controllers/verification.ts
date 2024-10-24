@@ -1,15 +1,19 @@
 import { error } from "elysia";
 import { agencies, users } from "../db/schema";
 import { db } from "../utils/db";
-import { verifyToken } from "../utils/jwt";
+import { signToken, verifyToken } from "../utils/jwt";
 import { eq } from 'drizzle-orm'
 import logger from "../utils/logger";
 import { verifyEmail, verifyPhoneNumber, verifyPhoneNumberCode } from "../utils/twilio";
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { randomUUID } from 'crypto'
+
 import twilio from "twilio"
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     const client = twilio(accountSid, authToken);
+    const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const createPersonalEmailVerificationCode = async ({ cookie, request }:any) => {
     
@@ -29,6 +33,9 @@ export const createPersonalEmailVerificationCode = async ({ cookie, request }:an
         if(!user){
             logger.error("USER NOT FOUND FOR VERIFICATION")
             return error(500, "Internal Server Error")
+        }
+        if(user.isDisabled){
+            return error(401, "Unauthorized")
         }
         const now = new Date();
         const lastVerification = user.lastEmailVerification ? new Date(user.lastEmailVerification) : null;
@@ -76,7 +83,16 @@ export const verifyPersonalCode = async ({ cookie, request, body }:any) => {
                 logger.error("USER NOT FOUND FOR VERIFICATION")
                 return error(500, "Internal Server Error")
             }
+            if(user.isDisabled){
+                return error(401, "Unauthorized")
+            }
             if(user.totalVerificationAttempts > 100) {
+                await db
+                    .update(users)
+                    .set({
+                      isDisabled: true
+                    })
+                    .where(eq(users.id, verified.id));
                 return error(429, "Too Many Attempts");
             }
             await db
@@ -120,7 +136,9 @@ export const resendPhoneVerification = async ({cookie, request }:any) => { // CA
                 logger.error("USER NOT FOUND FOR VERIFICATION")
                 return error(500, "Internal Server Error")
             }
-
+            if(user.isDisabled){
+                return error(401, "Unauthorized")
+            }
           const phoneNumber = user.phoneNumber
           if(!phoneNumber){
             return error(400, "Bad Request")
@@ -134,8 +152,16 @@ export const resendPhoneVerification = async ({cookie, request }:any) => { // CA
                 return error(429, `Please wait ${60 - timeDifferenceInSeconds} seconds before requesting a new code`);
               }
             }
-              if (user.totalPhoneVerificationAttempts > 6 || user.totalVerificationAttempts > 100) {
-                return error(429, "Too Many Attempts. Please try again later.");
+              if (user.totalPhoneVerificationAttempts > 9 || user.totalVerificationAttempts > 100) {
+                await db
+                    .update(users)
+                    .set({
+                      isDisabled: true
+                    })
+                    .where(eq(users.id, verified.id));
+                
+                return error(429, "Too Many Attempts.");
+
               }
               
               if (!phoneNumber) {
@@ -164,70 +190,131 @@ export const resendPhoneVerification = async ({cookie, request }:any) => { // CA
             }
 
 
-export const setPhoneNumber = async ({cookie, request, body }:any) => { // THIS IS ONLY FOR ONE TIME USE !! IMPORTANT
-    const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
-    const phoneNumber = body.phoneNumber
-    if(!phoneNumber){
-        return error(400, "Phone not provided")
-    }
-    if (!/^\d{10}$/.test(phoneNumber)) {
-        return error(400, "Incorrect phone format")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            export const setPhoneNumber = async ({ cookie, request, body }: any) => { // THIS IS ONLY FOR ONE TIME USE !! IMPORTANT
+                try{
+                const token = cookie.token?.value || request.headers.get('authorization')?.split(' ')[1];
+                const phoneNumber = body.phoneNumber;
+            
+                // Input Validation
+                if (!phoneNumber) {
+                    return error(400, "Phone number not provided.");
+                }
+                if (!/^\d{10}$/.test(phoneNumber)) {
+                    return error(400, "Incorrect phone format. It must be exactly 10 digits.");
+                }
+                if (!token) {
+                    return error(401, "Unauthorized. Token not provided.");
+                }
+            
+                // Verify Token
+                const verified: any = verifyToken(token);
+                if (!verified || !verified.id) {
+                    return error(401, "Invalid token.");
+                }
+            
+                try {
+                    // Fetch User from Database
+                    const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
+                    if (!user) {
+                        logger.error("USER NOT FOUND FOR VERIFICATION", { userId: verified.id });
+                        return error(500, "Internal Server Error.");
+                    }
+            
+                    // Check if User is Disabled
+                    if (user.isDisabled) {
+                        return error(401, "Unauthorized");
+                    }
+            
+                    // Check and Update Verification Attempts
+                    if (user.totalPhoneCodeVerificationAttempts >= 5) {
+                        await db
+                            .update(users)
+                            .set({ isDisabled: true })
+                            .where(eq(users.id, verified.id));
+                        logger.warn(`User ${verified.id} has been disabled due to too many verification attempts.`);
+                        return error(401, "Unauthorized");
+                    }
+            
+                    // Increment Verification Attempts
+                    await db
+                        .update(users)
+                        .set({
+                            totalPhoneCodeVerificationAttempts: user.totalPhoneCodeVerificationAttempts + 1
+                        })
+                        .where(eq(users.id, verified.id));
+            
+                    // Check if Phone Number is Already in Use
+                    const [phoneSearch] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber)).limit(1);
+                    if (phoneSearch) {
+                        return error(409, "Conflict. Phone number is already in use.");
+                    }
+            
+                    // Check if User Already Has a Phone Number Set
+                    if (user.phoneNumber !== null) {
+                        return error(403, "Forbidden. Phone number is already set.");
+                    }
+            
+                    // Initialize Twilio Client
+                    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+                    const authToken = process.env.TWILIO_AUTH_TOKEN;
+                    if (!accountSid || !authToken) {
+                        logger.error("Twilio credentials are not set in environment variables.");
+                        return error(500, "Internal Server Error.");
+                    }
+                    const client = twilio(accountSid, authToken);
+            
+                    // Check if Phone Number is Mobile
+                    const phoneToCheck = "+1" + phoneNumber;
+                    const number = await client.lookups.v2
+                        .phoneNumbers(phoneToCheck)
+                        .fetch({ fields: "line_type_intelligence" });
+            
+                    if (!number.lineTypeIntelligence || number.lineTypeIntelligence.type !== "mobile") {
+                        logger.error(`Invalid phone type for number: ${phoneNumber}`, { phoneType: number.lineTypeIntelligence?.type });
+                        return error(400, "Invalid phone number. Please use a mobile number or contact support@incidents.nyc for assistance.");
+                    }
+            
+                    // Send Phone Verification
+                    await verifyPhoneNumber(phoneNumber);
+            
+                    // Update User's Phone Number in Database
+                    await db
+                        .update(users)
+                        .set({ phoneNumber: phoneNumber })
+                        .where(eq(users.id, verified.id));
+            
+                    return { success: true };
+            
+                } catch (e) {
+                    // Enhanced Error Logging
+                    if (e instanceof Error) {
+                        logger.error("Error in setPhoneNumber:", { message: e.message, stack: e.stack });
+                    } else {
+                        logger.error("Unknown error in setPhoneNumber:", { error: e });
+                    }
+                    return error(500, "Internal Server Error.");
+                }
+            
+        } catch(e){
+            logger.error(e)
+
+            return error("Internal Server Error")
         }
-    if (!token) {
-        return error(401, "Unauthorized")
     }
-    // add check to ensure phone isnt on another account
-
-    const verified: any = verifyToken(token);
-    if (!verified || !verified.id) {
-        throw new Error('Invalid token');
-    }
-        try{
-            const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
-            if(!user){
-                logger.error("USER NOT FOUND FOR VERIFICATION")
-                return error(500, "Internal Server Error")
-            }
-            try{
-                const [phoneSearch] = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber)).limit(1);
-                if(phoneSearch){
-                    return error(409, "Conflict, phone already in use.")
-                }
-            } catch(e){
-                return error(409, "Conflict, phone already in use.")
-            }
-           
-            if(user.phoneNumber !== null){
-                return error(403, "Phone number is already set");
-            }
-            // check if the phone is mobile or voip. oNLY ALLOW MOBILE
-            const phoneToCheck = "+1" + phoneNumber
-            const number = await client.lookups.v2
-                .phoneNumbers(phoneToCheck)
-                .fetch({ fields: "line_type_intelligence" });
-
-
-            if(number.lineTypeIntelligence.type !== "mobile") {
-                return error(400, "Invalid Phone number Sorry. Contact support@incidents.nyc for assistance.") }
-
-                // now number is valid send phone verification
-            await verifyPhoneNumber(phoneNumber)
-             await db
-            .update(users)
-            .set({
-                phoneNumber: phoneNumber
-
-            })
-            .where(eq(users.id, verified.id));
-            return { success: true}
-
-
-                } catch(e){
-                logger.error(e)
-                error(500, "Internal Server Error")
-                }
-            }
-
 
             // create phone verification now 
 
@@ -254,11 +341,21 @@ export const verifyPhoneCode = async ({cookie, request, body }:any) => { // THIS
                 logger.error("USER NOT FOUND FOR VERIFICATION")
                 return error(500, "Internal Server Error")
             }
+            if(user.isDisabled){
+                return error(401, "Unauthorized")
+            }
             if(!user.phoneNumber){
                 return error(400, "Bad Request")
             }
             if (user.totalPhoneCodeVerificationAttempts > 40 || user.totalVerificationAttempts > 100) {
+                await db
+                    .update(users)
+                    .set({
+                      isDisabled: true
+                    })
+                    .where(eq(users.id, verified.id));
                 return error(429, "Too Many Attempts. Please try again later.");
+                
             }
   
             await db
@@ -310,12 +407,15 @@ export const setAgencyEmail = async ({cookie, request, body }:any) => { // THIS 
     const verified: any = verifyToken(token);
     if (!verified || !verified.id) {
         throw new Error('Invalid token');
-    }
+    }   
         try{
             const [user] = await db.select().from(users).where(eq(users.id, verified.id)).limit(1);
             if(!user){
                 logger.error("USER NOT FOUND FOR VERIFICATION")
                 return error(500, "Internal Server Error")
+            }
+            if(user.isDisabled){
+                return error(401, "Unauthorized")
             }
             if(user.agencyEmail !== null){
                 return error(403, "Agency email is already set");
@@ -412,6 +512,9 @@ export const setAgencyEmail = async ({cookie, request, body }:any) => { // THIS 
                 logger.error("USER NOT FOUND FOR VERIFICATION")
                 return error(500, "Internal Server Error")
             }
+            if(user.isDisabled){
+                return error(401, "Unauthorized")
+            }
             const now = new Date();
             const lastVerification = user.lastAgencyEmailVerification ? new Date(user.lastAgencyEmailVerification) : null;
             
@@ -462,11 +565,20 @@ export const checkAgencyEmailCode = async ({ cookie, request, body }:any) => {
             logger.error("USER NOT FOUND FOR VERIFICATION")
             return error(500, "Internal Server Error")
         }
+        if(user.isDisabled){
+            return error(401, "Unauthorized")
+        }
         const createdCode = user.agencyVerificationCode
         if(!user.agencyVerificationCode){
             return error(400, "Bad Request")
         }
         if(user.totalVerificationAttempts > 100){
+            await db
+                    .update(users)
+                    .set({
+                      isDisabled: true
+                    })
+                    .where(eq(users.id, verified.id));
             return error(429, "Too Many Requests")
         }
         await db
@@ -506,7 +618,9 @@ export const setActive = async ({cookie, request}:any) => {
                 logger.error("USER NOT FOUND FOR VERIFICATION")
                 return error(500, "Internal Server Error")
             }
-
+            if(user.isDisabled){
+                return error(401, "Unauthorized")
+            }
             if(user.isAgencyEmailVerified && user.isEmailVerified && user.phoneVerified && !user.needsManualApproval) {
                
                 try{
@@ -516,6 +630,32 @@ export const setActive = async ({cookie, request}:any) => {
                     isActive: true,
                 })
                 .where(eq(users.id, verified.id));
+
+
+                const token = await signToken({id: user.id, 
+                    email: user.email, 
+                    isActive: user.isActive,
+                    isAdmin: user.isAdmin,
+                    isDisabled: user.isDisabled,
+                })
+                    
+             
+                 const cookieOptions: any = {
+                     secure: isDevelopment ? false : true,
+                    //  httpOnly: true,
+                     sameSite: isDevelopment ? 'Strict' : 'Lax', // Strict for development, Lax for others
+                     maxAge: 43200, // 12 hours
+                 };
+                 
+            
+                 if (!isDevelopment) {
+                     cookieOptions.domain = 'incidents.nyc';
+                 } else{
+                    cookieOptions.domain = 'localhost';
+            
+                 }
+                 cookie.token.value = token;
+                 cookie.token.set(cookieOptions);
                 }
                 catch(e){
                     logger.error(e)
@@ -528,3 +668,91 @@ export const setActive = async ({cookie, request}:any) => {
             logger.error(e)
             return error(500, "Internal Server Error")
                 }        }
+
+
+                type VerificationFormData = {
+                    role: string
+                    name: string
+                    companyName: string
+                    streetAddress: string
+                    city: string
+                    state: string
+                    zipCode: string
+                    upload: File
+                }
+                const s3Client = new S3Client({
+                    region: process.env.AWS_REGION!,
+                    credentials: {
+                        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+                        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+                    }
+                })
+                export const submitVerificationForm = async ({ body, set }: { body: any, set: any }) => {
+                    try {
+                        // Log the received data
+                        console.log('Received body:', {
+                            ...body,
+                            file: body.file ? 'File present' : 'No file'
+                        })
+                
+                        if (!body.file) {
+                            set.status = 400
+                            return {
+                                success: false,
+                                message: 'No file provided'
+                            }
+                        }
+                
+                        // Generate file ID and S3 key
+                        const fileId = randomUUID()
+                        const s3Key = `verifications/${fileId}.pdf`
+                
+                        // Get the file buffer from the body
+                        const fileBuffer = await body.file.arrayBuffer()
+                
+                        // Upload to S3
+                        const uploadCommand = new PutObjectCommand({
+                            Bucket: process.env.AWS_BUCKET_NAME!,
+                            Key: s3Key,
+                            Body: Buffer.from(fileBuffer),
+                            ContentType: 'application/pdf'
+                        })
+                
+                        await s3Client.send(uploadCommand)
+                        console.log(`File uploaded to S3: ${s3Key}`)
+                
+                        // Create user data
+                        const userData = {
+                            role: body.role,
+                            name: body.name,
+                            companyName: body.companyName,
+                            streetAddress: body.streetAddress,
+                            city: body.city,
+                            state: body.state,
+                            zipCode: body.zipCode,
+                            documentId: fileId,
+                            documentUrl: `s3://${process.env.AWS_BUCKET_NAME}/${s3Key}`,
+                            status: 'pending',
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        }
+                
+                     
+                
+                        return {
+                            success: true,
+                            message: 'Verification submission successful',
+                        }
+                
+                    } catch (error) {
+                        console.error('Verification submission error:', error)
+                        set.status = 500
+                        return {
+                            success: false,
+                            message: 'Failed to process verification submission',
+                            error: error instanceof Error ? error.message : 'Unknown error'
+                        }
+                    }
+                }
+                
+        

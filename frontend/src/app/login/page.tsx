@@ -30,8 +30,11 @@ export default function Page() {
 
       if (response.status === 200) {
         router.push('/dashboard');
-      } else {
-        setError('Invalid credentials. Please try api.');
+      } else if(response.status === 403){
+        router.push('/disabled');
+      }
+      else {
+        setError('Invalid credentials.');
       }
     } catch (err) {
       console.log(err)

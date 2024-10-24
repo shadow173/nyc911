@@ -148,6 +148,13 @@
       "when": 1729671070421,
       "tag": "0021_outstanding_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1729719563684,
+      "tag": "0022_skinny_menace",
+      "breakpoints": true
     }
   ]
 }

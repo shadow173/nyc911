@@ -40,36 +40,57 @@ const generateVerificationCode = (): string => {
 
 // phone verification
 
-export const verifyPhoneNumber = async (phoneNumber:string) => { // should work
-    try{
+export const verifyPhoneNumber = async (phoneNumber: string) => {
+    try {
+        // Validate phone number format
         if (!/^\d{10}$/.test(phoneNumber)) {
             throw new Error("Phone number must be exactly 10 digits.");
-            return
-          }
-    
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const client = twilio(accountSid, authToken);
-    
-    async function createVerification() {
-      const verification = await client.verify.v2
-        .services("VA643780aa8b72d2c2a2c31469b4f85a3c")
-        .verifications.create({
-          channel: "sms",
-          to: "+1" + phoneNumber,
-        });
-    
-      console.log(verification.sid);
-      console.log(verification)
-    }
-    
-    createVerification();
-    } catch(e){
-        logger.error(e)
-    }
-  
+        }
 
-}
+        const accountSid = process.env.TWILIO_ACCOUNT_SID;
+        const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+        if (!accountSid || !authToken) {
+            throw new Error("Twilio credentials are not set in environment variables.");
+        }
+
+        const client = twilio(accountSid, authToken);
+
+        // Lookup phone number to verify it's mobile
+        const number = await client.lookups.v2
+            .phoneNumbers(phoneNumber)
+            .fetch({ fields: "line_type_intelligence" });
+
+        if (!number.lineTypeIntelligence || number.lineTypeIntelligence.type !== "mobile") {
+            logger.error(`Phone number ${phoneNumber} is not a mobile number.`);
+            throw new Error("Phone number is not a mobile number.");
+        }
+
+        // Create verification
+        const verification = await client.verify.v2
+            .services("VA643780aa8b72d2c2a2c31469b4f85a3c")
+            .verifications.create({
+                channel: "sms",
+                to: `+1${phoneNumber}`,
+            });
+
+        console.log(`Verification SID: ${verification.sid}`);
+        console.log(`Verification Status: ${verification.status}`);
+
+        return verification.sid; // Or any other relevant data
+
+    } catch (error) {
+        // Enhanced error logging
+        if (error instanceof Error) {
+            logger.error(`Error in verifyPhoneNumber: ${error.message}`, { stack: error.stack });
+            throw error; // Re-throw if you want upstream handlers to catch it
+        } else {
+            logger.error('An unknown error occurred in verifyPhoneNumber.', { error });
+            throw new Error('An unknown error occurred during phone verification.');
+        }
+    }
+};
+
 
 export const verifyPhoneNumberCode = async (phoneNumber:string, code: string) => { // should work
 try{
