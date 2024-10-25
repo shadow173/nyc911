@@ -31,6 +31,7 @@ const STEPS = 5;
 
 export default function VerificationPage() {
   const router = useRouter();
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [user, setUser] = useState<User | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState('');
@@ -235,12 +236,100 @@ export default function VerificationPage() {
       setIsLoading(false);
     }
   };
-  const handleManualSubmit = async (e:React.FormEvent<HTMLFormElement>) => {
+  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    // Add your submission logic here
-    setIsLoading(false);
-  };
+    setError('');
+    setUploadProgress(0);
+    
+    try {
+        // Create form data
+        const formData = new FormData();
+        
+        // Append all form fields
+        formData.append('role', verificationInfo.role);
+        formData.append('name', verificationInfo.fullName);
+        formData.append('companyName', verificationInfo.organization);
+        formData.append('streetAddress', verificationInfo.streetAddress);
+        formData.append('city', verificationInfo.city);
+        formData.append('state', verificationInfo.state);
+        formData.append('zipCode', verificationInfo.zipCode);
+
+        // Append the file if it exists
+        if (verificationInfo.cardPhoto) {
+            formData.append('file', verificationInfo.cardPhoto, 'verification-document.pdf');
+        }
+
+        // Create XMLHttpRequest to track progress
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                setUploadProgress(Math.round(percentComplete));
+            }
+        };
+
+        // Create a promise to handle the XHR request
+        const uploadPromise = new Promise((resolve, reject) => {
+            xhr.open('POST', `${process.env.NEXT_PUBLIC_API_URL}/auth/submitVerificationForm`);
+            xhr.withCredentials = true; // Enable credentials
+
+            xhr.onload = async () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        resolve(response);
+                    } catch (error) {
+                        reject(new Error('Failed to parse response'));
+                    }
+                } else {
+                    reject(new Error(`HTTP Error: ${xhr.status}`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('Network Error'));
+            xhr.send(formData);
+        });
+
+        // Wait for upload to complete
+        const result = await uploadPromise;
+
+        // Handle successful submission
+        setSuccessMessage('Verification submitted successfully');
+        
+        // Update user data and move to next step
+        const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+            credentials: 'include'
+        });
+        
+        if (userResponse.ok) {
+            const updatedUser = await userResponse.json();
+            if (checkAndHandleDisabledUser(updatedUser)) return;
+            setUser(updatedUser);
+            
+            if (updatedUser.verificationSubmitted) {
+                setCurrentStep(6);
+            }
+        }
+
+    } catch (err) {
+        console.error('Verification submission error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to submit verification');
+    } finally {
+        setIsLoading(false);
+    }
+};
+const ProgressBar = ({ progress }: { progress: number }) => (
+  <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+      <div 
+          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+          style={{ width: `${progress}%` }}
+      />
+  </div>
+);
+
   const handleResendEmail = async () => {
     if (!user || timeRemaining > 0) return;
     await sendVerificationEmail();
@@ -830,6 +919,39 @@ export default function VerificationPage() {
         <p className="text-gray-400 text-sm mt-4">
           * Required fields. All information submitted will be kept confidential and used only for verification purposes.
         </p>
+        {uploadProgress > 0 && uploadProgress < 100 && (
+        <div className="space-y-2">
+            <ProgressBar progress={uploadProgress} />
+            <p className="text-sm text-gray-400 text-center">
+                Uploading: {uploadProgress}%
+            </p>
+        </div>
+    )}
+
+    <Button 
+        type="submit" 
+        disabled={isLoading} 
+        className="w-full mt-6"
+    >
+        {isLoading 
+            ? uploadProgress > 0 
+                ? `Uploading... ${uploadProgress}%`
+                : 'Submitting...' 
+            : 'Submit for Verification'
+        }
+    </Button>
+
+    {/* Error and success messages */}
+    {error && (
+        <Alert className="mt-4 bg-red-900 border-red-800 text-red-300">
+            <AlertDescription>{error}</AlertDescription>
+        </Alert>
+    )}
+    {successMessage && (
+        <Alert className="mt-4 bg-green-900 border-green-800 text-green-300">
+            <AlertDescription>{successMessage}</AlertDescription>
+        </Alert>
+    )}
       </form>
           </>
         );
